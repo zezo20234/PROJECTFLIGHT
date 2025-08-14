@@ -3,36 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <title>Flight Tracker</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flight Tracker">
+<link rel="apple-touch-icon" href="airlogo.jpg">
+<link rel="manifest" href="manifest.json">
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, Arial, sans-serif; background: #f8fafc; }
-  .centered { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f8fafc; color: #0f172a;
+  }
+  .centered {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 16px;
+  }
   .card {
     background: #fff; padding: 24px; border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 380px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.1); width: 100%; max-width: 400px;
   }
-  input { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
+  h2, h3 { margin-top: 0; }
+  input, button {
+    width: 100%; padding: 14px; margin-top: 10px; border-radius: 12px;
+    font-size: 16px;
+  }
+  input {
+    border: 1px solid #ccc;
+  }
   button {
-    padding: 10px 16px; border: 0; border-radius: 8px;
-    background: #7c3aed; color: #fff; font-weight: bold; cursor: pointer; margin-top: 12px;
+    border: none; background: #7c3aed; color: white; font-weight: bold;
+    cursor: pointer;
   }
   button:hover { opacity: .95; }
   .error { color: #dc2626; margin-top: 8px; font-size: 14px; }
   header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 12px 16px; background: #fff; border-bottom: 1px solid #ddd;
+    position: sticky; top: 0; z-index: 1000;
   }
-  .count-badge { background: #eef2ff; color: #3730a3; padding: 4px 10px; border-radius: 999px; font-weight: bold; }
+  .count-badge {
+    background: #eef2ff; color: #3730a3; padding: 6px 12px;
+    border-radius: 999px; font-weight: bold;
+  }
   main { padding: 16px; display: grid; gap: 20px; }
   .card-section {
-    background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.05);
+    background: #fff; border-radius: 16px; padding: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.05);
   }
   .list { display: grid; gap: 10px; }
   .flight-item {
-    border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between;
+    border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+    display: flex; justify-content: space-between;
   }
-  .license-box { border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #f8fafc; }
+  .license-box {
+    border: 1px solid #ddd; border-radius: 8px; padding: 10px;
+    background: #f8fafc;
+  }
+  img.responsive {
+    max-width: 100%; height: auto; border-radius: 8px;
+  }
 </style>
 </head>
 <body>
@@ -45,7 +75,7 @@
     <input id="password" type="password" placeholder="Password">
     <button id="loginBtn">Login</button>
     <div class="error" id="loginError"></div>
-    <p style="font-size:12px; color:#666;">:</p>
+    <p style="font-size:12px; color:#666;">Demo: layan:246 • asser:456 • zezo:000</p>
   </div>
 </div>
 
@@ -79,7 +109,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
 <!-- QR Code generator -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
@@ -109,65 +138,63 @@ async function seedUsers(){
 }
 seedUsers();
 
-let currentUser=null;
+let currentUser = null;
+const loginView = document.getElementById("loginView");
+const dashView = document.getElementById("dashboardView");
+const validateView = document.getElementById("validateView");
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const loginError = document.getElementById("loginError");
+const flightCount = document.getElementById("flightCount");
+const flightsList = document.getElementById("flightsList");
+const licenseInfo = document.getElementById("licenseInfo");
 
-// UI
-const loginView=document.getElementById("loginView");
-const dashView=document.getElementById("dashboardView");
-const validateView=document.getElementById("validateView");
-const loginBtn=document.getElementById("loginBtn");
-const logoutBtn=document.getElementById("logoutBtn");
-const loginError=document.getElementById("loginError");
-const flightCount=document.getElementById("flightCount");
-const flightsList=document.getElementById("flightsList");
-const licenseInfo=document.getElementById("licenseInfo");
-
-loginBtn.onclick=async()=>{
-  const u=document.getElementById("username").value.trim();
-  const p=document.getElementById("password").value.trim();
-  loginError.textContent="";
-  const snap=await db.ref("users/"+u).get();
-  if(!snap.exists()){loginError.textContent="User not found";return;}
-  if(snap.val().password===p){
-    currentUser=u;
-    localStorage.setItem("ft_user",u);
+loginBtn.onclick = async () => {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value.trim();
+  loginError.textContent = "";
+  const snap = await db.ref("users/"+u).get();
+  if(!snap.exists()){ loginError.textContent = "User not found"; return; }
+  if(snap.val().password === p){
+    currentUser = u;
+    localStorage.setItem("ft_user", u);
     showDashboard();
   } else {
-    loginError.textContent="Wrong password";
+    loginError.textContent = "Wrong password";
   }
 };
-logoutBtn.onclick=()=>{
+
+logoutBtn.onclick = () => {
   localStorage.removeItem("ft_user");
-  currentUser=null;
-  dashView.style.display="none";
-  loginView.style.display="flex";
+  currentUser = null;
+  dashView.style.display = "none";
+  loginView.style.display = "flex";
 };
 
 async function showDashboard(){
-  loginView.style.display="none";
-  dashView.style.display="block";
+  loginView.style.display = "none";
+  dashView.style.display = "block";
   loadData();
 }
 
 async function loadData(){
-  if(!currentUser)return;
-  const ref=db.ref("data/"+currentUser);
-  const snap=await ref.get();
-  let data=snap.val()||{};
-  // License expiry
-  if(data.license && new Date(data.license.expiry)<new Date()){
+  if(!currentUser) return;
+  const ref = db.ref("data/"+currentUser);
+  const snap = await ref.get();
+  let data = snap.val() || {};
+  if(data.license && new Date(data.license.expiry) < new Date()){
     await ref.child("license").remove();
-    data.license=null;
+    data.license = null;
   }
   renderLicense(data.license);
-  renderFlights(data.flights||[]);
+  renderFlights(data.flights || []);
 }
 
 function renderLicense(license){
   if(license){
-    licenseInfo.innerHTML=`
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="airbus.png" style="width:80px;height:auto;border-radius:8px;border:1px solid #ccc;">
+    licenseInfo.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <img src="airbus.png" class="responsive" style="width:100px;border:1px solid #ccc;">
         <div>
           <div><strong>Signature:</strong> ${license.signature}</div>
           <div><strong>Expires:</strong> ${license.expiry}</div>
@@ -180,70 +207,70 @@ function renderLicense(license){
       width: 80, height: 80
     });
   } else {
-    licenseInfo.textContent="No license";
+    licenseInfo.textContent = "No license";
   }
 }
 
 function renderFlights(flights){
-  flightsList.innerHTML="";
-  flights.forEach(f=>{
-    const div=document.createElement("div");
-    div.className="flight-item";
-    div.innerHTML=`<span>${f.callSign} (${f.dep} → ${f.arr})</span>`;
+  flightsList.innerHTML = "";
+  flights.forEach(f => {
+    const div = document.createElement("div");
+    div.className = "flight-item";
+    div.innerHTML = `<span>${f.callSign} (${f.dep} → ${f.arr})</span>`;
     flightsList.appendChild(div);
   });
-  flightCount.textContent=`${flights.length} Flights`;
+  flightCount.textContent = `${flights.length} Flights`;
 }
 
-document.getElementById("addLicenseBtn").onclick=async()=>{
-  const code=prompt("Enter security code:");
-  if(code!=="555") return alert("Wrong code");
-  const signature=prompt("Enter signature:");
-  if(!signature)return;
-  const weeks=parseInt(prompt("Enter duration (1 or 2 weeks):"));
-  if(![1,2].includes(weeks))return alert("Invalid duration");
-  const expiry=new Date();
-  expiry.setDate(expiry.getDate()+weeks*7);
+document.getElementById("addLicenseBtn").onclick = async () => {
+  const code = prompt("Enter security code:");
+  if(code !== "555") return alert("Wrong code");
+  const signature = prompt("Enter signature:");
+  if(!signature) return;
+  const weeks = parseInt(prompt("Enter duration (1 or 2 weeks):"));
+  if(![1,2].includes(weeks)) return alert("Invalid duration");
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + weeks*7);
   await db.ref("data/"+currentUser+"/license").set({
     signature, expiry: expiry.toISOString().split("T")[0]
   });
   loadData();
 };
 
-document.getElementById("addFlightBtn").onclick=async()=>{
-  const code=prompt("Enter security code:");
-  if(code!=="555") return alert("Wrong code");
-  const callSign=prompt("Call sign:");
-  const dep=prompt("Departure airport:");
-  const arr=prompt("Arrival airport:");
-  if(!callSign||!dep||!arr)return;
-  const flightsSnap=await db.ref("data/"+currentUser+"/flights").get();
-  const flights=flightsSnap.val()||[];
-  flights.push({callSign,dep,arr});
+document.getElementById("addFlightBtn").onclick = async () => {
+  const code = prompt("Enter security code:");
+  if(code !== "555") return alert("Wrong code");
+  const callSign = prompt("Call sign:");
+  const dep = prompt("Departure airport:");
+  const arr = prompt("Arrival airport:");
+  if(!callSign || !dep || !arr) return;
+  const flightsSnap = await db.ref("data/"+currentUser+"/flights").get();
+  const flights = flightsSnap.val() || [];
+  flights.push({callSign, dep, arr});
   await db.ref("data/"+currentUser+"/flights").set(flights);
   loadData();
 };
 
 // QR validation
 async function validateLicense(user){
-  loginView.style.display="none";
-  dashView.style.display="none";
-  validateView.style.display="flex";
-  const box=document.getElementById("validationResult");
-  const snap=await db.ref("data/"+user+"/license").get();
-  if(snap.exists() && new Date(snap.val().expiry)>=new Date()){
-    box.innerHTML="<h2 style='color:green;'>VALID LICENSE</h2>";
+  loginView.style.display = "none";
+  dashView.style.display = "none";
+  validateView.style.display = "flex";
+  const box = document.getElementById("validationResult");
+  const snap = await db.ref("data/"+user+"/license").get();
+  if(snap.exists() && new Date(snap.val().expiry) >= new Date()){
+    box.innerHTML = "<h2 style='color:green;'>VALID LICENSE</h2>";
   } else {
-    box.innerHTML="<h2 style='color:red;'>NOT VALID</h2>";
+    box.innerHTML = "<h2 style='color:red;'>NOT VALID</h2>";
   }
 }
 
-const params=new URLSearchParams(window.location.search);
+const params = new URLSearchParams(window.location.search);
 if(params.has("validate")){
   validateLicense(params.get("validate"));
 } else {
-  const saved=localStorage.getItem("ft_user");
-  if(saved){currentUser=saved;showDashboard();}
+  const saved = localStorage.getItem("ft_user");
+  if(saved){ currentUser = saved; showDashboard(); }
 }
 </script>
 </body>
