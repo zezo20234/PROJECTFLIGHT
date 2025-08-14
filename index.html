@@ -6,60 +6,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 0; font-family: system-ui, Arial, sans-serif;
-    background: #f8fafc; color: #0f172a;
-  }
-  /* Login styles */
-  .centered {
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh;
-  }
+  body { margin: 0; font-family: system-ui, Arial, sans-serif; background: #f8fafc; }
+  .centered { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
   .card {
     background: #fff; padding: 24px; border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.08);
-    width: 100%; max-width: 380px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 380px;
   }
-  input {
-    width: 100%; padding: 10px; margin-top: 8px;
-    border-radius: 8px; border: 1px solid #ccc; font-size: 14px;
-  }
+  input { width: 100%; padding: 10px; margin-top: 8px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; }
   button {
     padding: 10px 16px; border: 0; border-radius: 8px;
-    background: #7c3aed; color: #fff; font-weight: bold;
-    cursor: pointer; margin-top: 12px; width: 100%;
+    background: #7c3aed; color: #fff; font-weight: bold; cursor: pointer; margin-top: 12px;
   }
   button:hover { opacity: .95; }
   .error { color: #dc2626; margin-top: 8px; font-size: 14px; }
-  /* Dashboard styles */
   header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 12px 16px; background: #fff; border-bottom: 1px solid #ddd;
-    position: sticky; top: 0;
   }
-  .count-badge {
-    background: #eef2ff; color: #3730a3; padding: 4px 10px;
-    border-radius: 999px; font-weight: bold;
-  }
+  .count-badge { background: #eef2ff; color: #3730a3; padding: 4px 10px; border-radius: 999px; font-weight: bold; }
   main { padding: 16px; display: grid; gap: 20px; }
   .card-section {
-    background: #fff; border-radius: 16px; padding: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.05);
+    background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.05);
   }
   .list { display: grid; gap: 10px; }
   .flight-item {
-    border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px;
-    display: flex; justify-content: space-between;
+    border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between;
   }
-  .license-box {
-    border: 1px solid #ddd; border-radius: 8px; padding: 10px;
-    background: #f8fafc;
-  }
+  .license-box { border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #f8fafc; }
 </style>
 </head>
 <body>
 
-<!-- Login UI -->
+<!-- Login -->
 <div id="loginView" class="centered">
   <div class="card">
     <h2>Login</h2>
@@ -71,183 +49,202 @@
   </div>
 </div>
 
-<!-- Dashboard UI -->
+<!-- Dashboard -->
 <div id="dashboardView" style="display:none;">
   <header>
-    <div><span class="count-badge" id="flightCount">0 Flights</span></div>
-    <div>
-      <button id="logoutBtn" style="background:#6b7280;">Logout</button>
-    </div>
+    <span class="count-badge" id="flightCount">0 Flights</span>
+    <button id="logoutBtn" style="background:#6b7280;">Logout</button>
   </header>
   <main>
     <div class="card-section">
       <h3>License</h3>
       <div id="licenseInfo" class="license-box">No license</div>
-      <button id="addLicenseBtn" style="margin-top:8px;">Add License</button>
+      <button id="addLicenseBtn">Add License</button>
     </div>
     <div class="card-section">
       <h3>Flights</h3>
       <div class="list" id="flightsList"></div>
-      <button id="addFlightBtn" style="margin-top:8px; background:#0ea5e9;">Add Flight</button>
+      <button id="addFlightBtn" style="background:#0ea5e9;">Add Flight</button>
     </div>
   </main>
 </div>
 
-<!-- Firebase SDK -->
+<!-- Validation Page -->
+<div id="validateView" class="centered" style="display:none;">
+  <div class="card" id="validationResult">
+    Checking license...
+  </div>
+</div>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<!-- QR Code generator -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <script>
-  // Config
-  const firebaseConfig = {
-    apiKey: "AIzaSyAjeXycCBhYoAU-0iiC4LbSTylKrrThN8Y",
-    authDomain: "sharplabubu.firebaseapp.com",
-    databaseURL: "https://sharplabubu-default-rtdb.firebaseio.com",
-    projectId: "sharplabubu",
-    storageBucket: "sharplabubu.firebasestorage.app",
-    messagingSenderId: "596148393481",
-    appId: "1:596148393481:web:4f822d86c44a13bd810ad8",
-    measurementId: "G-4M25R3BF08"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+const firebaseConfig = {
+  apiKey: "AIzaSyAjeXycCBhYoAU-0iiC4LbSTylKrrThN8Y",
+  authDomain: "sharplabubu.firebaseapp.com",
+  databaseURL: "https://sharplabubu-default-rtdb.firebaseio.com",
+  projectId: "sharplabubu",
+  storageBucket: "sharplabubu.firebasestorage.app",
+  messagingSenderId: "596148393481",
+  appId: "1:596148393481:web:4f822d86c44a13bd810ad8",
+  measurementId: "G-4M25R3BF08"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-  // Seed users if missing
-  async function seedUsers() {
-    const snap = await db.ref("users").get();
-    if (!snap.exists()) {
-      await db.ref("users").set({
-        layan: { password: "246" },
-        asser: { password: "456" },
-        zezo: { password: "000" }
-      });
-    }
-  }
-  seedUsers();
-
-  let currentUser = null;
-
-  // UI refs
-  const loginView = document.getElementById("loginView");
-  const dashView = document.getElementById("dashboardView");
-  const loginBtn = document.getElementById("loginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const loginError = document.getElementById("loginError");
-  const flightCount = document.getElementById("flightCount");
-  const flightsList = document.getElementById("flightsList");
-  const licenseInfo = document.getElementById("licenseInfo");
-  const addFlightBtn = document.getElementById("addFlightBtn");
-  const addLicenseBtn = document.getElementById("addLicenseBtn");
-
-  // Login
-  loginBtn.onclick = async () => {
-    const u = document.getElementById("username").value.trim();
-    const p = document.getElementById("password").value.trim();
-    loginError.textContent = "";
-    const snap = await db.ref("users/" + u).get();
-    if (!snap.exists()) {
-      loginError.textContent = "User not found";
-      return;
-    }
-    if (snap.val().password === p) {
-      currentUser = u;
-      localStorage.setItem("ft_user", u);
-      showDashboard();
-    } else {
-      loginError.textContent = "Wrong password";
-    }
-  };
-
-  logoutBtn.onclick = () => {
-    localStorage.removeItem("ft_user");
-    currentUser = null;
-    dashView.style.display = "none";
-    loginView.style.display = "flex";
-  };
-
-  // Show dashboard
-  async function showDashboard() {
-    loginView.style.display = "none";
-    dashView.style.display = "block";
-    loadData();
-  }
-
-  // Load flights and license
-  async function loadData() {
-    if (!currentUser) return;
-    const dataRef = db.ref("data/" + currentUser);
-    const snap = await dataRef.get();
-    let data = snap.val() || {};
-    // Check license expiry
-    if (data.license && new Date(data.license.expiry) < new Date()) {
-      await dataRef.child("license").remove();
-      data.license = null;
-    }
-    renderLicense(data.license);
-    renderFlights(data.flights || []);
-  }
-
-  function renderLicense(license) {
-    if (license) {
-      licenseInfo.innerHTML = `
-        <div>Signature: ${license.signature}</div>
-        <div>Expires: ${license.expiry}</div>
-      `;
-    } else {
-      licenseInfo.textContent = "No license";
-    }
-  }
-
-  function renderFlights(flights) {
-    flightsList.innerHTML = "";
-    const list = flights || [];
-    list.forEach(f => {
-      const div = document.createElement("div");
-      div.className = "flight-item";
-      div.innerHTML = `<span>${f.callSign} (${f.dep} → ${f.arr})</span>`;
-      flightsList.appendChild(div);
+async function seedUsers(){
+  const snap = await db.ref("users").get();
+  if(!snap.exists()){
+    await db.ref("users").set({
+      layan: {password:"246"},
+      asser: {password:"456"},
+      zezo: {password:"000"}
     });
-    flightCount.textContent = `${list.length} Flights`;
   }
+}
+seedUsers();
 
-  // Add license
-  addLicenseBtn.onclick = async () => {
-    const code = prompt("Enter security code:");
-    if (code !== "555") return alert("Wrong code");
-    const signature = prompt("Enter signature:");
-    if (!signature) return;
-    const weeks = prompt("Enter duration (1 or 2 weeks):");
-    const w = parseInt(weeks);
-    if (![1,2].includes(w)) return alert("Invalid duration");
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + w*7);
-    await db.ref("data/" + currentUser + "/license").set({
-      signature, expiry: expiryDate.toISOString().split("T")[0]
-    });
-    loadData();
-  };
+let currentUser=null;
 
-  // Add flight
-  addFlightBtn.onclick = async () => {
-    const code = prompt("Enter security code:");
-    if (code !== "555") return alert("Wrong code");
-    const callSign = prompt("Enter call sign:");
-    const dep = prompt("Enter departure airport:");
-    const arr = prompt("Enter arrival airport:");
-    if (!callSign || !dep || !arr) return;
-    const flightsSnap = await db.ref("data/" + currentUser + "/flights").get();
-    const flights = flightsSnap.val() || [];
-    flights.push({ callSign, dep, arr });
-    await db.ref("data/" + currentUser + "/flights").set(flights);
-    loadData();
-  };
+// UI
+const loginView=document.getElementById("loginView");
+const dashView=document.getElementById("dashboardView");
+const validateView=document.getElementById("validateView");
+const loginBtn=document.getElementById("loginBtn");
+const logoutBtn=document.getElementById("logoutBtn");
+const loginError=document.getElementById("loginError");
+const flightCount=document.getElementById("flightCount");
+const flightsList=document.getElementById("flightsList");
+const licenseInfo=document.getElementById("licenseInfo");
 
-  // Auto-login if session exists
-  const saved = localStorage.getItem("ft_user");
-  if (saved) {
-    currentUser = saved;
+loginBtn.onclick=async()=>{
+  const u=document.getElementById("username").value.trim();
+  const p=document.getElementById("password").value.trim();
+  loginError.textContent="";
+  const snap=await db.ref("users/"+u).get();
+  if(!snap.exists()){loginError.textContent="User not found";return;}
+  if(snap.val().password===p){
+    currentUser=u;
+    localStorage.setItem("ft_user",u);
     showDashboard();
+  } else {
+    loginError.textContent="Wrong password";
   }
-</script>
+};
+logoutBtn.onclick=()=>{
+  localStorage.removeItem("ft_user");
+  currentUser=null;
+  dashView.style.display="none";
+  loginView.style.display="flex";
+};
 
+async function showDashboard(){
+  loginView.style.display="none";
+  dashView.style.display="block";
+  loadData();
+}
+
+async function loadData(){
+  if(!currentUser)return;
+  const ref=db.ref("data/"+currentUser);
+  const snap=await ref.get();
+  let data=snap.val()||{};
+  // License expiry
+  if(data.license && new Date(data.license.expiry)<new Date()){
+    await ref.child("license").remove();
+    data.license=null;
+  }
+  renderLicense(data.license);
+  renderFlights(data.flights||[]);
+}
+
+function renderLicense(license){
+  if(license){
+    licenseInfo.innerHTML=`
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img src="airbus.png" style="width:80px;height:auto;border-radius:8px;border:1px solid #ccc;">
+        <div>
+          <div><strong>Signature:</strong> ${license.signature}</div>
+          <div><strong>Expires:</strong> ${license.expiry}</div>
+          <div id="qrcode"></div>
+        </div>
+      </div>
+    `;
+    new QRCode(document.getElementById("qrcode"), {
+      text: window.location.origin+window.location.pathname+"?validate="+currentUser,
+      width: 80, height: 80
+    });
+  } else {
+    licenseInfo.textContent="No license";
+  }
+}
+
+function renderFlights(flights){
+  flightsList.innerHTML="";
+  flights.forEach(f=>{
+    const div=document.createElement("div");
+    div.className="flight-item";
+    div.innerHTML=`<span>${f.callSign} (${f.dep} → ${f.arr})</span>`;
+    flightsList.appendChild(div);
+  });
+  flightCount.textContent=`${flights.length} Flights`;
+}
+
+document.getElementById("addLicenseBtn").onclick=async()=>{
+  const code=prompt("Enter security code:");
+  if(code!=="555") return alert("Wrong code");
+  const signature=prompt("Enter signature:");
+  if(!signature)return;
+  const weeks=parseInt(prompt("Enter duration (1 or 2 weeks):"));
+  if(![1,2].includes(weeks))return alert("Invalid duration");
+  const expiry=new Date();
+  expiry.setDate(expiry.getDate()+weeks*7);
+  await db.ref("data/"+currentUser+"/license").set({
+    signature, expiry: expiry.toISOString().split("T")[0]
+  });
+  loadData();
+};
+
+document.getElementById("addFlightBtn").onclick=async()=>{
+  const code=prompt("Enter security code:");
+  if(code!=="555") return alert("Wrong code");
+  const callSign=prompt("Call sign:");
+  const dep=prompt("Departure airport:");
+  const arr=prompt("Arrival airport:");
+  if(!callSign||!dep||!arr)return;
+  const flightsSnap=await db.ref("data/"+currentUser+"/flights").get();
+  const flights=flightsSnap.val()||[];
+  flights.push({callSign,dep,arr});
+  await db.ref("data/"+currentUser+"/flights").set(flights);
+  loadData();
+};
+
+// QR validation
+async function validateLicense(user){
+  loginView.style.display="none";
+  dashView.style.display="none";
+  validateView.style.display="flex";
+  const box=document.getElementById("validationResult");
+  const snap=await db.ref("data/"+user+"/license").get();
+  if(snap.exists() && new Date(snap.val().expiry)>=new Date()){
+    box.innerHTML="<h2 style='color:green;'>VALID LICENSE</h2>";
+  } else {
+    box.innerHTML="<h2 style='color:red;'>NOT VALID</h2>";
+  }
+}
+
+const params=new URLSearchParams(window.location.search);
+if(params.has("validate")){
+  validateLicense(params.get("validate"));
+} else {
+  const saved=localStorage.getItem("ft_user");
+  if(saved){currentUser=saved;showDashboard();}
+}
+</script>
 </body>
 </html>
