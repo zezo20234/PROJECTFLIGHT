@@ -565,7 +565,7 @@ async function startScanner() {
   try {
     await html5Qr.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 260, height: 260 } },
+      { fps: 35, qrbox: { width: 260, height: 260 } },
       onScanSuccess,
       onScanFailure
     );
