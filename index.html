@@ -16,6 +16,7 @@
     --card: #ffffff; --muted: #6b7280;
     --primary: #7c3aed; --blue: #0ea5e9; --gray: #6b7280;
     --border: #e5e7eb; --shadow: 0 8px 30px rgba(0,0,0,.08);
+    --danger: #ef4444; --warn: #f59e0b;
   }
   * { box-sizing: border-box; }
   body {
@@ -28,7 +29,8 @@
   .btn-blue { background: var(--blue); }
   .btn-gray { background: var(--gray); }
   .btn-outline { background: #fff; color: var(--fg); border: 1px solid var(--border); }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-warn { background: var(--warn); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .w-auto { width: auto; }
   .hidden { display: none !important; }
 
@@ -52,10 +54,7 @@
     position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
   }
-  .header-stats {
-    display: flex;
-    gap: 10px;
-  }
+  .header-stats { display: flex; gap: 10px; }
   .count-badge {
     background: #eef2ff; color: #3730a3; padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 14px;
   }
@@ -79,7 +78,7 @@
   .qr-box { display: grid; justify-items: center; gap: 4px; }
   .muted { color: var(--muted); }
 
-  /* modal */
+  /* modal/backdrop */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,.4); display: grid; place-items: center; z-index: 1000;
   }
@@ -88,6 +87,8 @@
   }
   .modal header { position: static; border: 0; padding: 0; margin-bottom: 8px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+
+  /* signature pad */
   .sig-pad {
     width: 100%; height: 200px; border: 1px dashed var(--border); border-radius: 12px; background: #fff;
     touch-action: none;
@@ -96,12 +97,22 @@
   .tip { font-size: 13px; color: var(--muted); }
 
   /* scanner view */
-  #scannerView .card { max-width: 540px; }
-  #reader { width: 100%; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+  #scannerView .card, #warningScannerView .card { max-width: 540px; }
+  #reader, #warningReader {
+    width: 100%; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+  }
 
   /* validation card */
   .valid { color: #16a34a; }
   .invalid { color: #dc2626; }
+
+  .warnings-pill {
+    display: inline-block; font-weight: 800; padding: 6px 10px; border-radius: 999px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
+  }
+  .suspended {
+    border: 2px solid var(--danger);
+    box-shadow: 0 0 0 4px rgba(239,68,68,.12);
+  }
 </style>
 </head>
 <body>
@@ -140,6 +151,7 @@
       <div id="licenseInfo" class="license-box">No license</div>
       <div class="row" style="margin-top:10px;">
         <button id="addLicenseBtn" class="btn btn-primary">Add License</button>
+        <button id="addWarningBtn" class="btn btn-warn">Add Warning (Scan)</button>
         <button id="fireMyselfBtn" class="btn btn-outline">Fire Myself</button>
       </div>
     </div>
@@ -171,7 +183,19 @@
     <p class="tip">Point your camera at the QR. We’ll open and validate it automatically.</p>
     <div id="reader"></div>
     <div class="row" style="margin-top:12px;">
-      <button id="closeScannerBtn" class="btn btn-outline">Close</button>
+      <button id="closeScannerBtn" class="btn btn-outline w-auto">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Warning Scanner View -->
+<div id="warningScannerView" class="centered hidden">
+  <div class="card" style="width:100%;">
+    <h3>Add Warning (Scan a License QR)</h3>
+    <p class="tip">Scan a valid license QR to add a warning (max 3).</p>
+    <div id="warningReader"></div>
+    <div class="row" style="margin-top:12px;">
+      <button id="closeWarningScannerBtn" class="btn btn-outline w-auto">Close</button>
     </div>
   </div>
 </div>
@@ -201,7 +225,7 @@
   </div>
 </div>
 
-<!-- Routes Modal (NEW) -->
+<!-- Routes Modal -->
 <div id="routesModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
     <header><h3>Available Routes</h3></header>
@@ -212,7 +236,7 @@
   </div>
 </div>
 
-<!-- Planes Modal (NEW) -->
+<!-- Planes Modal -->
 <div id="planesModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
     <header>
@@ -276,13 +300,17 @@ const loginView = document.getElementById("loginView");
 const dashboardView = document.getElementById("dashboardView");
 const validateView = document.getElementById("validateView");
 const scannerView = document.getElementById("scannerView");
+const warningScannerView = document.getElementById("warningScannerView");
 
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const openScannerBtn = document.getElementById("openScannerBtn");
 const closeScannerBtn = document.getElementById("closeScannerBtn");
-const routesBtn = document.getElementById("routesBtn"); // NEW
-const planesBtn = document.getElementById("planesBtn"); // NEW
+const addWarningBtn = document.getElementById("addWarningBtn");
+
+const closeWarningScannerBtn = document.getElementById("closeWarningScannerBtn");
+const routesBtn = document.getElementById("routesBtn");
+const planesBtn = document.getElementById("planesBtn");
 
 const loginError = document.getElementById("loginError");
 const flightCount = document.getElementById("flightCount");
@@ -303,12 +331,12 @@ const clearSigBtn = document.getElementById("clearSigBtn");
 const sigPad = document.getElementById("sigPad");
 const durationSelect = document.getElementById("durationSelect");
 
-/* Routes modal elements (NEW) */
+/* Routes modal elements */
 const routesModalBackdrop = document.getElementById("routesModalBackdrop");
 const routesList = document.getElementById("routesList");
 const closeRoutesBtn = document.getElementById("closeRoutesBtn");
 
-/* Planes modal elements (NEW) */
+/* Planes modal elements */
 const planesModalBackdrop = document.getElementById("planesModalBackdrop");
 const planesList = document.getElementById("planesList");
 const closePlanesBtn = document.getElementById("closePlanesBtn");
@@ -318,17 +346,17 @@ const movePlaneBtn = document.getElementById("movePlaneBtn");
 // Define locations and hard-coded routes
 const locations = ["PUNTA CANA", "LARNACA", "GRAN CANARIA", "MENORCA", "LONDON GATWICK", "AKROTIRI", "KITTILA"];
 const routes = [
-  "PUNTA CANA TO MENORCA",
-  "MENORCA TO PUNTA CANA",
-  "PUNTA CANA TO LARNACA",
-  "LARNACA TO PUNTA CANA",
-  "PUNTA CANA TO LONDON GATWICK",
-  "LONDON GATWICK TO PUNTA CANA",
-  "PUNTA CANA TO GRAN CANARIA",
-  "GRAN CANARIA TO PUNTA CANA",
-  "PUNTA CANA TO KITTILA",
-  "KITTILA TO PUNTA CANA",
-    "MENORECA TO AKROTIRI",
+  "PUNTA CANA TO MENORCA",
+  "MENORCA TO PUNTA CANA",
+  "PUNTA CANA TO LARNACA",
+  "LARNACA TO PUNTA CANA",
+  "PUNTA CANA TO LONDON GATWICK",
+  "LONDON GATWICK TO PUNTA CANA",
+  "PUNTA CANA TO GRAN CANARIA",
+  "GRAN CANARIA TO PUNTA CANA",
+  "PUNTA CANA TO KITTILA",
+  "KITTILA TO PUNTA CANA",
+  "MENORECA TO AKROTIRI",
   "AKROTIRI TO MENORECA",
 ];
 
@@ -336,7 +364,7 @@ const routes = [
     Routing helpers
 ========================= */
 function show(view) {
-  for (const el of [loginView, dashboardView, validateView, scannerView, routesModalBackdrop, planesModalBackdrop, licenseModalBackdrop]) {
+  for (const el of [loginView, dashboardView, validateView, scannerView, warningScannerView, routesModalBackdrop, planesModalBackdrop, licenseModalBackdrop]) {
     el.classList.add("hidden");
   }
   view.classList.remove("hidden");
@@ -440,14 +468,21 @@ function renderLicense(license) {
   // Build QR container id
   const qrid = "qrcode_" + Math.random().toString(36).slice(2);
 
+  // Warnings display & suspended state
+  const warnings = Math.min(license.warnings || 0, 3);
+  const suspended = warnings >= 3;
+
   licenseInfo.innerHTML = `
-    <div class="license-card">
+    <div class="license-card ${suspended ? 'suspended' : ''}">
       <img src="https://placehold.co/100x70/e2e8f0/000000?text=AIRBUS" alt="Airbus" class="license-img" />
       <div>
         <div><strong>Signature:</strong></div>
         <img src="${license.signatureDataUrl}" alt="Signature" style="display:block;max-width:240px;height:auto;border:1px solid #d1d5db;border-radius:8px;background:#fff;" />
         <div class="muted" style="margin-top:6px;"><strong>Expires:</strong> ${license.expiry}</div>
         <div class="muted"><strong>ID:</strong> ${license.licenseId}</div>
+        <div style="margin-top:6px;">
+          <span class="warnings-pill">Warnings: ${warnings}/3 ${suspended ? '— SUSPENDED' : ''}</span>
+        </div>
       </div>
       <div class="qr-box">
         <div id="${qrid}"></div>
@@ -456,8 +491,19 @@ function renderLicense(license) {
     </div>
   `;
 
+  // Bigger, higher-contrast QR for easier scanning
   const qrUrl = window.location.origin + window.location.pathname + "?validate=" + encodeURIComponent(currentUser) + "&lid=" + encodeURIComponent(license.licenseId);
-  new QRCode(document.getElementById(qrid), { text: qrUrl, width: 96, height: 96 });
+  const qrContainer = document.getElementById(qrid);
+  // Clear any prior QR content
+  qrContainer.innerHTML = "";
+  new QRCode(qrContainer, {
+    text: qrUrl,
+    width: 220,
+    height: 220,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
 }
 
 function renderPoints(points) {
@@ -607,7 +653,8 @@ saveLicenseBtn.onclick = async () => {
   await db.ref("data/" + currentUser + "/license").set({
     signatureDataUrl,
     expiry: expiry.toISOString().split("T")[0],
-    licenseId
+    licenseId,
+    warnings: 0
   });
 
   licenseModalBackdrop.classList.add("hidden");
@@ -615,17 +662,25 @@ saveLicenseBtn.onclick = async () => {
 };
 
 /* =========================
-    Built-in QR Scanner
+    QR Scanners
 ========================= */
-let html5Qr; // instance
+let html5Qr; // main validate scanner
+let warningQr; // warning scanner
 
-openScannerBtn.onclick = () => {
-  show(scannerView);
-  startScanner();
-};
-closeScannerBtn.onclick = async () => {
-  await stopScanner();
-  show(dashboardView);
+openScannerBtn.onclick = () => { show(scannerView); startScanner(); };
+closeScannerBtn.onclick = async () => { await stopScanner(); show(dashboardView); };
+
+addWarningBtn.onclick = () => { show(warningScannerView); startWarningScanner(); };
+closeWarningScannerBtn.onclick = async () => { await stopWarningScanner(); show(dashboardView); };
+
+// Faster scanner config
+const scanConfig = {
+  fps: 45, // faster scan rate
+  qrbox: { width: 280, height: 280 }, // larger box for stability
+  rememberLastUsedCamera: true,
+  aspectRatio: 1.7778,
+  experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+  formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
 };
 
 async function startScanner() {
@@ -633,7 +688,7 @@ async function startScanner() {
   try {
     await html5Qr.start(
       { facingMode: "environment" },
-      { fps: 35, qrbox: { width: 260, height: 260 } },
+      scanConfig,
       onScanSuccess,
       onScanFailure
     );
@@ -643,7 +698,7 @@ async function startScanner() {
   }
 }
 async function stopScanner() {
-  if (html5Qr && html5Qr.getState() === Html5QrcodeScannerState.SCANNING) {
+  if (html5Qr && (html5Qr.getState && html5Qr.getState() === Html5QrcodeScannerState.SCANNING)) {
     await html5Qr.stop();
   }
   if (html5Qr) await html5Qr.clear();
@@ -651,8 +706,70 @@ async function stopScanner() {
 function onScanSuccess(decodedText) {
   stopScanner().then(() => { window.location.href = decodedText; });
 }
-function onScanFailure(err) {
-  // ignore frequent decode errors
+function onScanFailure(_) { /* ignore frequent decode errors */ }
+
+async function startWarningScanner() {
+  if (!warningQr) warningQr = new Html5Qrcode("warningReader");
+  try {
+    await warningQr.start(
+      { facingMode: "environment" },
+      scanConfig,
+      onWarningScanSuccess,
+      (_) => {}
+    );
+  } catch (e) {
+    console.error(e);
+    alert("Could not start camera for warning scanner. Check permissions.");
+  }
+}
+async function stopWarningScanner() {
+  if (warningQr && (warningQr.getState && warningQr.getState() === Html5QrcodeScannerState.SCANNING)) {
+    await warningQr.stop();
+  }
+  if (warningQr) await warningQr.clear();
+}
+
+// Parse ?validate=USER&lid=ID from scanned URL, then add a warning to that license (max 3)
+async function onWarningScanSuccess(decodedText) {
+  try {
+    await stopWarningScanner();
+    const url = new URL(decodedText, window.location.origin);
+    const user = url.searchParams.get("validate");
+    const lid  = url.searchParams.get("lid");
+    if (!user || !lid) {
+      alert("Invalid QR content. Not a license QR.");
+      show(dashboardView);
+      return;
+    }
+    const ref = db.ref("data/" + user + "/license");
+    const snap = await ref.get();
+    if (!snap.exists()) {
+      alert("No license found for scanned user.");
+      show(dashboardView);
+      return;
+    }
+    const lic = snap.val();
+    if (lic.licenseId !== lid) {
+      alert("License ID mismatch. Warning not added.");
+      show(dashboardView);
+      return;
+    }
+    const currentWarnings = Math.min(lic.warnings || 0, 3);
+    if (currentWarnings >= 3) {
+      alert("This license already has 3 warnings (SUSPENDED).");
+      show(dashboardView);
+      return;
+    }
+    const newWarnings = currentWarnings + 1;
+    await ref.update({ warnings: newWarnings });
+    alert(`Warning added to ${user}. Now ${newWarnings}/3${newWarnings >= 3 ? " — SUSPENDED" : ""}.`);
+    if (user === currentUser) await loadData(); // refresh if it's our own license
+    show(dashboardView);
+  } catch (e) {
+    console.error(e);
+    alert("Error adding warning: " + e.message);
+    show(dashboardView);
+  }
 }
 
 /* =========================
@@ -667,12 +784,23 @@ async function validateLicense(user, lid) {
     const ok = snap.exists() &&
                (!lid || (snap.val().licenseId === lid)) &&
                new Date(snap.val().expiry) >= new Date();
-    if (ok) {
+    const warnings = Math.min((snap.val() && snap.val().warnings) || 0, 3);
+    const suspended = warnings >= 3;
+    if (ok && !suspended) {
       box.innerHTML = `
         <h2 class="valid">VALID LICENSE ✅</h2>
         <p><strong>User:</strong> ${user}</p>
         <p><strong>License ID:</strong> ${snap.val().licenseId}</p>
         <p><strong>Expires:</strong> ${snap.val().expiry}</p>
+        <p><strong>Warnings:</strong> ${warnings}/3</p>
+      `;
+    } else if (suspended) {
+      box.innerHTML = `
+        <h2 class="invalid">NOT VALID ❌</h2>
+        <p>License is suspended due to 3 warnings.</p>
+        <p><strong>User:</strong> ${user}</p>
+        <p><strong>License ID:</strong> ${snap.val().licenseId}</p>
+        <p><strong>Warnings:</strong> ${warnings}/3</p>
       `;
     } else {
       box.innerHTML = `<h2 class="invalid">NOT VALID ❌</h2><p>Expired, missing, or mismatched ID.</p>`;
@@ -684,25 +812,13 @@ async function validateLicense(user, lid) {
 }
 
 /* =========================
-    New Planes & Routes Logic
+    Planes & Routes
 ========================= */
-routesBtn.onclick = () => {
-  renderRoutes();
-  show(routesModalBackdrop);
-};
+routesBtn.onclick = () => { renderRoutes(); show(routesModalBackdrop); };
+closeRoutesBtn.onclick = () => { show(dashboardView); };
 
-closeRoutesBtn.onclick = () => {
-  show(dashboardView);
-};
-
-planesBtn.onclick = () => {
-  renderPlaneLocations();
-  show(planesModalBackdrop);
-};
-
-closePlanesBtn.onclick = () => {
-  show(dashboardView);
-};
+planesBtn.onclick = () => { renderPlaneLocations(); show(planesModalBackdrop); };
+closePlanesBtn.onclick = () => { show(dashboardView); };
 
 addPlaneBtn.onclick = async () => {
   const code = prompt("Enter security code:");
@@ -710,12 +826,12 @@ addPlaneBtn.onclick = async () => {
 
   const planeType = prompt("What type is the plane?");
   if (!planeType) return;
-  
+
   const destination = prompt("Which country/location to put it in? Available: " + locations.join(", "));
   if (!destination || !locations.includes(destination.toUpperCase())) {
     return alert("Invalid location. Please try again.");
   }
-  
+
   const plane = {
     id: `PLANE-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
     type: planeType
@@ -725,7 +841,7 @@ addPlaneBtn.onclick = async () => {
   const snap = await planesRef.get();
   const planesAtLocation = snap.val() || [];
   planesAtLocation.push(plane);
-  
+
   await planesRef.set(planesAtLocation);
   alert(`Plane ${plane.id} (${plane.type}) added to ${destination.toUpperCase()}.`);
   await loadData();
@@ -773,7 +889,7 @@ movePlaneBtn.onclick = async () => {
   const newPlanes = (await newPlanesRef.get()).val() || [];
   newPlanes.push(foundPlane);
   await newPlanesRef.set(newPlanes);
-  
+
   alert(`Plane ${planeId} moved from ${oldLocation} to ${newLocation.toUpperCase()}.`);
   await loadData();
   renderPlaneLocations(); // Refresh the list
@@ -803,7 +919,7 @@ function renderPlaneLocations() {
 function renderPlanesAtLocation(location) {
   const planes = currentPlanes[location.toUpperCase()] || [];
   planesList.innerHTML = ""; // Clear list
-  
+
   if (planes.length === 0) {
     planesList.innerHTML = `<p class="muted">No planes found at ${location}.</p>`;
   } else {
