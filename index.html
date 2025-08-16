@@ -16,7 +16,7 @@
     --card: #ffffff; --muted: #6b7280;
     --primary: #7c3aed; --blue: #0ea5e9; --gray: #6b7280;
     --border: #e5e7eb; --shadow: 0 8px 30px rgba(0,0,0,.08);
-    --danger: #ef4444; --warn: #f59e0b;
+    --danger: #ef4444; --warn: #f59e0b; --ok: #22c55e;
   }
   * { box-sizing: border-box; }
   body {
@@ -112,6 +112,24 @@
   .suspended {
     border: 2px solid var(--danger);
     box-shadow: 0 0 0 4px rgba(239,68,68,.12);
+  }
+
+  /* condition bar */
+  .cond {
+    width: 160px; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-left: 10px;
+    border: 1px solid #d1d5db;
+  }
+  .cond-fill {
+    height: 100%; transition: width .25s ease;
+  }
+  .cond-green { background: #22c55e; }
+  .cond-amber { background: #f59e0b; }
+  .cond-red   { background: #ef4444; }
+
+  .plane-line { display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%; }
+  .plane-meta { display:flex; gap:10px; align-items:center; }
+  .badge {
+    padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; border:1px solid #fecaca; color:#991b1b; background:#fee2e2;
   }
 </style>
 </head>
@@ -812,7 +830,7 @@ async function validateLicense(user, lid) {
 }
 
 /* =========================
-    Planes & Routes
+    Planes & Routes (+ Condition & Flight Cap)
 ========================= */
 routesBtn.onclick = () => { renderRoutes(); show(routesModalBackdrop); };
 closeRoutesBtn.onclick = () => { show(dashboardView); };
@@ -834,7 +852,9 @@ addPlaneBtn.onclick = async () => {
 
   const plane = {
     id: `PLANE-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-    type: planeType
+    type: planeType,
+    flights: 0,            // NEW
+    condition: 100         // NEW (percent)
   };
 
   const planesRef = db.ref(`public/planes/${destination.toUpperCase()}`);
@@ -868,7 +888,7 @@ movePlaneBtn.onclick = async () => {
     const planesAtLoc = currentPlanes[loc.toUpperCase()] || [];
     const planeIndex = planesAtLoc.findIndex(p => p.id === planeId);
     if (planeIndex !== -1) {
-      foundPlane = planesAtLoc[planeIndex];
+      foundPlane = { ...planesAtLoc[planeIndex] }; // copy
       oldLocation = loc.toUpperCase();
       break;
     }
@@ -878,19 +898,34 @@ movePlaneBtn.onclick = async () => {
     return alert("Plane not found with that ID.");
   }
 
+  // Defaults in case older planes don't have new fields yet
+  foundPlane.flights = Number.isFinite(foundPlane.flights) ? foundPlane.flights : 0;
+  foundPlane.condition = Number.isFinite(foundPlane.condition) ? foundPlane.condition : 100;
+
+  // Grounded check
+  if (foundPlane.flights >= 25 || foundPlane.condition <= 0) {
+    return alert(`Plane ${foundPlane.id} is grounded (flights: ${foundPlane.flights}/25, condition: ${Math.max(0,foundPlane.condition)}%).`);
+  }
+
+  // Consume one flight
+  foundPlane.flights = Math.min(25, foundPlane.flights + 1);
+  // Drop 4% per flight to reach 0 at 25 moves
+  foundPlane.condition = Math.max(0, Math.round((foundPlane.condition - 4) * 10) / 10);
+
   // Remove plane from old location
   const oldPlanesRef = db.ref(`public/planes/${oldLocation}`);
-  const oldPlanes = (await oldPlanesRef.get()).val();
+  const oldPlanes = (await oldPlanesRef.get()).val() || [];
   const newOldPlanes = oldPlanes.filter(p => p.id !== planeId);
   await oldPlanesRef.set(newOldPlanes);
 
-  // Add plane to new location
+  // Add plane to new location (with updated state)
   const newPlanesRef = db.ref(`public/planes/${newLocation.toUpperCase()}`);
   const newPlanes = (await newPlanesRef.get()).val() || [];
   newPlanes.push(foundPlane);
   await newPlanesRef.set(newPlanes);
 
-  alert(`Plane ${planeId} moved from ${oldLocation} to ${newLocation.toUpperCase()}.`);
+  const groundedNow = (foundPlane.flights >= 25 || foundPlane.condition <= 0);
+  alert(`Plane ${planeId} moved from ${oldLocation} to ${newLocation.toUpperCase()}.\nFlights: ${foundPlane.flights}/25 • Condition: ${foundPlane.condition}%${groundedNow ? " • Now GROUNDED" : ""}`);
   await loadData();
   renderPlaneLocations(); // Refresh the list
 };
@@ -903,6 +938,12 @@ function renderRoutes() {
     div.innerHTML = `<span>${route}</span>`;
     routesList.appendChild(div);
   });
+}
+
+function condClass(pct){
+  if (pct > 50) return "cond-green";
+  if (pct > 20) return "cond-amber";
+  return "cond-red";
 }
 
 function renderPlaneLocations() {
@@ -924,10 +965,29 @@ function renderPlanesAtLocation(location) {
     planesList.innerHTML = `<p class="muted">No planes found at ${location}.</p>`;
   } else {
     planes.forEach(plane => {
-      const div = document.createElement("div");
-      div.className = "flight-item";
-      div.innerHTML = `<span>Plane ID: ${plane.id}, Type: ${plane.type}</span>`;
-      planesList.appendChild(div);
+      // Backfill defaults if older data
+      const flights = Number.isFinite(plane.flights) ? plane.flights : 0;
+      const condition = Number.isFinite(plane.condition) ? plane.condition : 100;
+      const grounded = (flights >= 25 || condition <= 0);
+
+      const line = document.createElement("div");
+      line.className = "flight-item";
+      line.innerHTML = `
+        <div class="plane-line">
+          <div class="plane-meta">
+            <strong>${plane.id}</strong> <span class="muted">(${plane.type})</span>
+            ${grounded ? '<span class="badge">GROUNDED</span>' : ''}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="muted" title="Flights used">✈️ ${flights}/25</span>
+            <div class="cond" title="Condition">
+              <div class="cond-fill ${condClass(condition)}" style="width:${Math.max(0,Math.min(100,condition))}%;"></div>
+            </div>
+            <span class="muted">${Math.max(0,Math.min(100,condition))}%</span>
+          </div>
+        </div>
+      `;
+      planesList.appendChild(line);
     });
   }
 }
