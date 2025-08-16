@@ -25,7 +25,8 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg); 
     color: var(--fg);
-    overflow-x: auto; /* enable horizontal scrolling */
+    overflow-x: hidden; /* Prevent horizontal scrolling on the body */
+    overflow-y: auto; /* Allow vertical scrolling on the body */
   }
 
   /* shared */
@@ -67,7 +68,9 @@
     padding: 16px; 
     display: grid; 
     gap: 20px; 
-    min-width: max-content; /* allow horizontal scroll */
+    min-width: 100vw; /* Ensure main container fills the entire viewport width */
+    overflow-x: auto; /* Allow horizontal scrolling specifically within the main content */
+    white-space: nowrap; /* Prevent items from wrapping to the next line */
   }
   .card-section { background: #fff; border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
   .section-title { margin-bottom: 8px; }
@@ -143,6 +146,7 @@
   }
 </style>
 </head>
+
 <body>
 
 <!-- Login View -->
