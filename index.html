@@ -1,126 +1,1044 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Flight Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      padding: 20px;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 15px;
-      border: none;
-      background: #0078d7;
-      color: #fff;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #005fa3;
-    }
-    #planeList {
-      margin-top: 20px;
-      padding: 10px;
-      background: #fff;
-      border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Flight Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=0.8, minimum-scale=0.5, maximum-scale=3, user-scalable=yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Flight Tracker" />
+<link rel="apple-touch-icon" href="airlogo.jpg" />
+<link rel="manifest" href="manifest.json" />
+
+<style>
+  :root {
+    --bg: #f8fafc; --fg: #0f172a;
+    --card: #ffffff; --muted: #6b7280;
+    --primary: #7c3aed; --blue: #0ea5e9; --gray: #6b7280;
+    --border: #e5e7eb; --shadow: 0 8px 30px rgba(0,0,0,.08);
+    --danger: #ef4444; --warn: #f59e0b; --ok: #22c55e;
+  }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); 
+    color: var(--fg);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .btn { width: 100%; padding: 14px; border: 0; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; }
+  .btn-primary { background: var(--primary); }
+  .btn-blue { background: var(--blue); }
+  .btn-gray { background: var(--gray); }
+  .btn-outline { background: #fff; color: var(--fg); border: 1px solid var(--border); }
+  .btn-warn { background: var(--warn); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .w-auto { width: auto; }
+  .hidden { display: none !important; }
+
+  .centered { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .card {
+    width: 100%; max-width: 430px; background: var(--card); border-radius: 16px; padding: 24px; box-shadow: var(--shadow);
+  }
+  h1, h2, h3 { margin: 0 0 10px; }
+  .sub { color: var(--muted); margin-bottom: 18px; }
+  label { font-size: 13px; color: #334155; }
+  input, select {
+    width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); margin-top: 6px;
+    font-size: 16px; background: #fff; color: var(--fg);
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(124,58,237,.12); }
+  .error { color: #dc2626; min-height: 1.2em; margin-top: 8px; }
+
+  header {
+    position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+  }
+  .header-stats { display: flex; gap: 10px; }
+  .count-badge {
+    background: #eef2ff; color: #3730a3; padding: 6px 12px; border-radius: 999px; font-weight: 800; font-size: 14px;
+  }
+  main { 
+    padding: 16px; 
+    display: grid; 
+    gap: 20px; 
+    min-width: 100vw;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .card-section { background: #fff; border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+  .section-title { margin-bottom: 8px; }
+  .list { display: grid; gap: 10px; }
+  .flight-item, .plane-item {
+    display: flex; justify-content: space-between; align-items: center;
+    border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+  }
+  .plane-item { cursor: pointer; }
+  .plane-item:hover { background: #f1f5f9; }
+  .license-box {
+    border: 1px solid var(--border); border-radius: 16px; padding: 12px; background: #f8fafc;
+  }
+  .license-card {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  }
+  .license-img { width: 100px; border: 1px solid #d1d5db; border-radius: 8px; }
+  .qr-box { display: grid; justify-items: center; gap: 4px; }
+  .muted { color: var(--muted); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: grid; place-items: center; z-index: 1000;
+  }
+  .modal {
+    width: 100%; max-width: 520px; background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 16px;
+  }
+  .modal header { position: static; border: 0; padding: 0; margin-bottom: 8px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+
+  .sig-pad {
+    width: 100%; height: 200px; border: 1px dashed var(--border); border-radius: 12px; background: #fff;
+    touch-action: none;
+  }
+  .sig-tools { display: flex; gap: 10px; margin: 8px 0 4px; }
+  .tip { font-size: 13px; color: var(--muted); }
+
+  #scannerView .card, #warningScannerView .card { max-width: 540px; }
+  #reader, #warningReader {
+    width: 100%; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
+  }
+
+  .valid { color: #16a34a; }
+  .invalid { color: #dc2626; }
+
+  .warnings-pill {
+    display: inline-block; font-weight: 800; padding: 6px 10px; border-radius: 999px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
+  }
+  .suspended {
+    border: 2px solid var(--danger);
+    box-shadow: 0 0 0 4px rgba(239,68,68,.12);
+  }
+
+  .cond { width: 160px; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-left: 10px; border: 1px solid #d1d5db; }
+  .cond-fill { height: 100%; transition: width .25s ease; }
+  .cond-green { background: #22c55e; }
+  .cond-amber { background: #f59e0b; }
+  .cond-red   { background: #ef4444; }
+
+  .plane-line { display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%; }
+  .plane-meta { display:flex; gap:10px; align-items:center; }
+  .badge { padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; border:1px solid #fecaca; color:#991b1b; background:#fee2e2; }
+</style>
 </head>
+
 <body>
-  <h1>Flight Tracker</h1>
-  <button id="addPlaneBtn">Add Plane</button>
-  <button id="movePlaneBtn">Move Plane</button>
 
-  <div id="planeList"></div>
+<!-- Login View -->
+<div id="loginView" class="centered">
+  <div class="card">
+    <h2>Login</h2>
+    <p class="sub">Sign in to your Flight Tracker</p>
+    <label>Username</label>
+    <input id="username" placeholder="e.g. layan" autocomplete="username" />
+    <label style="margin-top:10px;">Password</label>
+    <input id="password" type="password" placeholder="•••" autocomplete="current-password" />
+    <button id="loginBtn" class="btn btn-primary" style="margin-top:14px;">Log in</button>
+    <div class="error" id="loginError"></div>
+  </div>
+</div>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-  <script>
-    // Your Firebase Config
-    const firebaseConfig = {
-      apiKey: "AIzaSyA-dTtBf2Kc7tQAwZV8Xv3uJ0bhObY5ReU",
-      authDomain: "pf-help.firebaseapp.com",
-      databaseURL: "https://pf-help-default-rtdb.firebaseio.com",
-      projectId: "pf-help",
-      storageBucket: "pf-help.appspot.com",
-      messagingSenderId: "1066961257346",
-      appId: "1:1066961257346:web:cdd7c97f733ccba2250a7a"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+<!-- Main Dashboard View -->
+<div id="dashboardView" class="hidden">
+  <header>
+    <div class="header-stats">
+      <span class="count-badge" id="flightCount">0 Flights</span>
+      <span class="count-badge" id="pointsCount">0 Points</span>
+    </div>
+    <div class="row">
+      <button id="openScannerBtn" class="btn btn-outline w-auto">Scan QR</button>
+      <button id="routesBtn" class="btn btn-blue w-auto">Routes</button>
+      <button id="planesBtn" class="btn btn-blue w-auto">Planes</button>
+      <button id="logoutBtn" class="btn btn-gray w-auto">Logout</button>
+    </div>
+  </header>
+  <main>
+    <div class="card-section">
+      <h3 class="section-title">License</h3>
+      <div id="licenseInfo" class="license-box">No license</div>
+      <div class="row" style="margin-top:10px;">
+        <button id="addLicenseBtn" class="btn btn-primary">Add License</button>
+        <button id="addWarningBtn" class="btn btn-warn">Add Warning (Scan)</button>
+        <button id="fireMyselfBtn" class="btn btn-outline">Fire Myself</button>
+      </div>
+    </div>
+    <div class="card-section">
+      <h3 class="section-title">Airlines</h3>
+      <div class="row">
+        <button id="addAirlineBtn" class="btn btn-blue">Add Airline</button>
+      </div>
+    </div>
+    <div class="card-section">
+      <h3 class="section-title">Flights</h3>
+      <div id="flightsList" class="list"></div>
+      <div class="row" style="margin-top:10px;">
+        <!-- Add Flight now triggers scanner flow (code 555 -> scan -> prompts -> save) -->
+        <button id="addFlightBtn" class="btn btn-blue">Add Flight</button>
+      </div>
+    </div>
+  </main>
+</div>
 
-    const addPlaneBtn = document.getElementById("addPlaneBtn");
-    const movePlaneBtn = document.getElementById("movePlaneBtn");
-    const planeList = document.getElementById("planeList");
+<!-- Validation View (for QR code scan) -->
+<div id="validateView" class="centered hidden">
+  <div class="card" id="validationResult">Checking license…</div>
+</div>
 
-    const discordWebhook = "https://discord.com/api/webhooks/1407114318964854846/hHYi-dw0ItK9KJty0tUyMa-oKWPsR-JkIKzLDqWdyx_Ukl9BmL7omuWqnW3SqySilKdC";
+<!-- QR Scanner View -->
+<div id="scannerView" class="centered hidden">
+  <div class="card" style="width:100%;">
+    <h3>Scan a License QR</h3>
+    <p class="tip">Point your camera at the QR. We’ll open and validate it automatically.</p>
+    <div id="reader"></div>
+    <div class="row" style="margin-top:12px;">
+      <button id="closeScannerBtn" class="btn btn-outline w-auto">Close</button>
+    </div>
+  </div>
+</div>
 
-    // Add Plane
-    addPlaneBtn.onclick = async () => {
-      const name = prompt("Enter plane name:");
-      if (!name) return;
+<!-- Warning Scanner View -->
+<div id="warningScannerView" class="centered hidden">
+  <div class="card" style="width:100%;">
+    <h3>Add Warning (Scan a License QR)</h3>
+    <p class="tip">Scan a valid license QR to add a warning (max 3).</p>
+    <div id="warningReader"></div>
+    <div class="row" style="margin-top:12px;">
+      <button id="closeWarningScannerBtn" class="btn btn-outline w-auto">Close</button>
+    </div>
+  </div>
+</div>
 
-      const location = prompt("Enter starting location:");
-      if (!location) return;
+<!-- Add License Modal -->
+<div id="licenseModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <header><h3>Create License</h3></header>
+    <p class="tip">Draw your signature below, pick duration, then Save.</p>
 
-      await db.ref("public/planes/" + name).set({
-        location: location,
-        createdAt: new Date().toISOString()
+    <div class="sig-tools">
+      <button id="clearSigBtn" class="btn btn-outline w-auto">Clear</button>
+      <span class="tip">Use your finger or mouse.</span>
+    </div>
+    <canvas id="sigPad" class="sig-pad"></canvas>
+
+    <label style="margin-top:10px;">Duration</label>
+    <select id="durationSelect">
+      <option value="1">1 week</option>
+      <option value="2">2 weeks</option>
+    </select>
+
+    <div class="modal-actions">
+      <button id="cancelLicenseBtn" class="btn btn-outline w-auto">Cancel</button>
+      <button id="saveLicenseBtn" class="btn btn-primary w-auto">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Routes Modal -->
+<div id="routesModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <header><h3>Available Routes</h3></header>
+    <div id="routesList" class="list"></div>
+    <div class="modal-actions">
+      <button id="closeRoutesBtn" class="btn btn-outline w-auto">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Planes Modal -->
+<div id="planesModalBackdrop" class="modal-backdrop hidden">
+  <div class="modal">
+    <header>
+      <div class="row">
+        <h3>Planes</h3>
+        <button id="addPlaneBtn" class="btn btn-primary w-auto">Add Plane</button>
+        <button id="movePlaneBtn" class="btn btn-blue w-auto">Move Plane</button>
+      </div>
+    </header>
+    <div id="planesList" class="list"></div>
+    <div class="modal-actions">
+      <button id="closePlanesBtn" class="btn btn-outline w-auto">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+/* =========================
+    Firebase init (same config as your project)
+========================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBF45eYjtdN7xAwPnhPNRMROcWiylSJRjA",
+  authDomain: "projectflight-551fb.firebaseapp.com",
+  databaseURL: "https://projectflight-551fb-default-rtdb.firebaseio.com",
+  projectId: "projectflight-551fb",
+  storageBucket: "projectflight-551fb.firebasestorage.app",
+  messagingSenderId: "669138235193",
+  appId: "1:669138235193:web:8581e586d192b3d19782e8",
+  measurementId: "G-SX32X0ZXG2"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+/* =========================
+    Seed demo users (once)
+========================= */
+async function seedUsersIfNeeded() {
+  const snap = await db.ref("users").get();
+  if (!snap.exists()) {
+    await db.ref("users").set({
+      layan: { password: "246" },
+      asser: { password: "456" },
+      zezo:  { password: "000" }
+    });
+  }
+}
+seedUsersIfNeeded();
+
+/* =========================
+    State & UI elements
+========================= */
+let currentUser = null;
+let currentPlanes = {};
+
+const loginView = document.getElementById("loginView");
+const dashboardView = document.getElementById("dashboardView");
+const validateView = document.getElementById("validateView");
+const scannerView = document.getElementById("scannerView");
+const warningScannerView = document.getElementById("warningScannerView");
+
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const openScannerBtn = document.getElementById("openScannerBtn");
+const closeScannerBtn = document.getElementById("closeScannerBtn");
+const addWarningBtn = document.getElementById("addWarningBtn");
+
+const closeWarningScannerBtn = document.getElementById("closeWarningScannerBtn");
+const routesBtn = document.getElementById("routesBtn");
+const planesBtn = document.getElementById("planesBtn");
+
+const loginError = document.getElementById("loginError");
+const flightCount = document.getElementById("flightCount");
+const pointsCount = document.getElementById("pointsCount");
+const flightsList = document.getElementById("flightsList");
+const licenseInfo = document.getElementById("licenseInfo");
+
+const addFlightBtn = document.getElementById("addFlightBtn");
+const addLicenseBtn = document.getElementById("addLicenseBtn");
+const addAirlineBtn = document.getElementById("addAirlineBtn");
+const fireMyselfBtn = document.getElementById("fireMyselfBtn");
+
+/* Signature modal elements */
+const licenseModalBackdrop = document.getElementById("licenseModalBackdrop");
+const cancelLicenseBtn = document.getElementById("cancelLicenseBtn");
+const saveLicenseBtn = document.getElementById("saveLicenseBtn");
+const clearSigBtn = document.getElementById("clearSigBtn");
+const sigPad = document.getElementById("sigPad");
+const durationSelect = document.getElementById("durationSelect");
+
+/* Routes modal elements */
+const routesModalBackdrop = document.getElementById("routesModalBackdrop");
+const routesList = document.getElementById("routesList");
+const closeRoutesBtn = document.getElementById("closeRoutesBtn");
+
+/* Planes modal elements */
+const planesModalBackdrop = document.getElementById("planesModalBackdrop");
+const planesList = document.getElementById("planesList");
+const closePlanesBtn = document.getElementById("closePlanesBtn");
+const addPlaneBtn = document.getElementById("addPlaneBtn");
+const movePlaneBtn = document.getElementById("movePlaneBtn");
+
+// Define locations and hard-coded routes
+const locations = ["PUNTA CANA", "LARNACA", "GRAN CANARIA", "MENORCA", "LONDON GATWICK", "AKROTIRI", "KITTILA"];
+const routes = [
+  "PUNTA CANA TO MENORCA",
+  "MENORCA TO PUNTA CANA",
+  "PUNTA CANA TO LARNACA",
+  "LARNACA TO PUNTA CANA",
+  "PUNTA CANA TO LONDON GATWICK",
+  "LONDON GATWICK TO PUNTA CANA",
+  "PUNTA CANA TO GRAN CANARIA",
+  "GRAN CANARIA TO PUNTA CANA",
+  "PUNTA CANA TO KITTILA",
+  "KITTILA TO PUNTA CANA",
+  "MENORECA TO AKROTIRI",
+  "AKROTIRI TO MENORECA",
+];
+
+/* =========================
+    Routing helpers
+========================= */
+function show(view) {
+  for (const el of [loginView, dashboardView, validateView, scannerView, warningScannerView, routesModalBackdrop, planesModalBackdrop, licenseModalBackdrop]) {
+    el.classList.add("hidden");
+  }
+  view.classList.remove("hidden");
+}
+
+/* =========================
+    Login / Logout
+========================= */
+loginBtn.onclick = async () => {
+  const u = document.getElementById("username").value.trim();
+  const p = document.getElementById("password").value.trim();
+  loginError.textContent = "";
+  const snap = await db.ref("users/" + u).get();
+  if (!snap.exists()) {
+    loginError.textContent = "User not found.";
+    return;
+  }
+  if (snap.val().password === p) {
+    currentUser = u;
+    localStorage.setItem("ft_user", u);
+    await ensureDataRoot();
+    await loadData();
+    show(dashboardView);
+  } else {
+    loginError.textContent = "Invalid password.";
+  }
+};
+
+logoutBtn.onclick = () => {
+  localStorage.removeItem("ft_user");
+  currentUser = null;
+  show(loginView);
+};
+
+/* =========================
+    Data load & render
+========================= */
+async function ensureDataRoot() {
+  if (!currentUser) return;
+  const now = new Date().toISOString();
+  const ref = db.ref("data/" + currentUser);
+  const snap = await ref.get();
+  let data = snap.val() || {};
+
+  // Check for weekly points
+  if (data.airline && data.airline.pointsPerWeek) {
+    const lastAwarded = new Date(data.airline.lastAwarded || now);
+    const nowTime = new Date().getTime();
+    const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+    if (nowTime - lastAwarded.getTime() >= oneWeekInMs) {
+      const newPoints = (data.points || 0) + data.airline.pointsPerWeek;
+      await ref.update({
+        points: newPoints,
+        'airline/lastAwarded': now
       });
+      data.points = newPoints;
+      console.log(`Awarded ${data.airline.pointsPerWeek} points to ${currentUser}. New total: ${newPoints}`);
+    }
+  }
+  await ref.child("_lastLoginAt").set(now);
+}
 
-      alert("Plane added!");
-      loadPlanes();
-    };
+async function loadData() {
+  if (!currentUser) return;
+  const ref = db.ref("data/" + currentUser);
+  const snap = await ref.get();
+  let data = snap.val() || {};
 
-    // Move Plane + Discord notification
-    movePlaneBtn.onclick = async () => {
-      const name = prompt("Enter plane name to move:");
-      if (!name) return;
+  // Auto-expire license
+  if (data.license && new Date(data.license.expiry) < new Date()) {
+    await ref.child("license").remove();
+    data.license = null;
+  }
 
-      const location = prompt("Enter new location:");
-      if (!location) return;
+  // Load planes data from a public path
+  const planesRef = db.ref("public/planes");
+  const planesSnap = await planesRef.get();
+  currentPlanes = planesSnap.val() || {};
 
-      await db.ref("public/planes/" + name).update({
-        location: location,
-        movedAt: new Date().toISOString()
+  renderLicense(data.license);
+  renderFlights(data.flights || []);
+  renderPoints(data.points || 0);
+
+  // Render planes modal content (keeps it fresh)
+  renderPlanesModal();
+}
+
+function renderFlights(flights) {
+  flightsList.innerHTML = "";
+  (flights || []).forEach(f => {
+    const div = document.createElement("div");
+    div.className = "flight-item";
+    // Show callSign (we store plane kind there), dep -> arr and date
+    const at = f.at ? new Date(f.at).toLocaleString() : "";
+    div.innerHTML = `<span>${f.callSign} (${f.dep} → ${f.arr})</span><small class="muted">${at}</small>`;
+    flightsList.appendChild(div);
+  });
+  flightCount.textContent = `${(flights || []).length} Flights`;
+}
+
+function renderLicense(license) {
+  if (!license) {
+    licenseInfo.textContent = "No license";
+    return;
+  }
+  const qrid = "qrcode_" + Math.random().toString(36).slice(2);
+  const warnings = Math.min(license.warnings || 0, 3);
+  const suspended = warnings >= 3;
+
+  licenseInfo.innerHTML = `
+    <div class="license-card ${suspended ? 'suspended' : ''}">
+      <img src="airbus.png" alt="Airbus" class="license-img" />
+      <div>
+        <div><strong>Signature:</strong></div>
+        <img src="${license.signatureDataUrl}" alt="Signature" style="display:block;max-width:240px;height:auto;border:1px solid #d1d5db;border-radius:8px;background:#fff;" />
+        <div class="muted" style="margin-top:6px;"><strong>Expires:</strong> ${license.expiry}</div>
+        <div class="muted"><strong>ID:</strong> ${license.licenseId}</div>
+        <div style="margin-top:6px;">
+          <span class="warnings-pill">Warnings: ${warnings}/3 ${suspended ? '— SUSPENDED' : ''}</span>
+        </div>
+      </div>
+      <div class="qr-box">
+        <div id="${qrid}"></div>
+        <div class="muted" style="font-size:12px;">Scan to verify</div>
+      </div>
+    </div>
+  `;
+
+  const qrUrl = window.location.origin + window.location.pathname + "?validate=" + encodeURIComponent(currentUser) + "&lid=" + encodeURIComponent(license.licenseId);
+  const qrContainer = document.getElementById(qrid);
+  qrContainer.innerHTML = "";
+  new QRCode(qrContainer, {
+    text: qrUrl,
+    width: 220,
+    height: 220,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+function renderPoints(points) {
+  pointsCount.textContent = `${points || 0} Points`;
+}
+
+/* =========================
+    Planes modal rendering and move handling (Discord webhook)
+========================= */
+const discordWebhook = "https://discord.com/api/webhooks/1407114318964854846/hHYi-dw0ItK9KJty0tUyMa-oKWPsR-JkIKzLDqWdyx_Ukl9BmL7omuWqnW3SqySilKdC";
+
+function renderPlanesModal() {
+  planesList.innerHTML = "";
+  const keys = Object.keys(currentPlanes || {});
+  if (keys.length === 0) {
+    planesList.innerHTML = `<div class="muted">No planes registered.</div>`;
+    return;
+  }
+  keys.forEach(name => {
+    const plane = currentPlanes[name] || {};
+    const div = document.createElement("div");
+    div.className = "plane-item";
+    const left = document.createElement("div");
+    left.innerHTML = `<strong>${name}</strong><div class="muted" style="font-size:13px;">${plane.location || "—"}</div>`;
+    const right = document.createElement("div");
+    right.style.display = "flex";
+    right.style.gap = "8px";
+    const moveBtn = document.createElement("button");
+    moveBtn.className = "btn btn-outline w-auto";
+    moveBtn.style.width = "auto";
+    moveBtn.textContent = "Move";
+    moveBtn.onclick = () => movePlane(name);
+    right.appendChild(moveBtn);
+    div.appendChild(left);
+    div.appendChild(right);
+    planesList.appendChild(div);
+  });
+}
+
+async function movePlane(planeName) {
+  try {
+    const newLoc = prompt(`Enter new location for ${planeName}:`);
+    if (!newLoc) return alert("Move canceled (no location).");
+
+    // Update Firebase
+    await db.ref("public/planes/" + planeName).update({
+      location: newLoc,
+      movedAt: new Date().toISOString()
+    });
+
+    // Notify Discord
+    try {
+      await fetch(discordWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `✈️ The plane **${planeName}** has been moved to **${newLoc}**`
+        })
       });
-
-      alert(`Plane ${name} moved to ${location}`);
-
-      // Notify Discord
-      try {
-        await fetch(discordWebhook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: `✈️ The plane **${name}** has been moved to **${location}**`
-          })
-        });
-      } catch (err) {
-        console.error("Discord error:", err);
-      }
-
-      loadPlanes();
-    };
-
-    // Load plane list
-    async function loadPlanes() {
-      const snapshot = await db.ref("public/planes").once("value");
-      const planes = snapshot.val() || {};
-      planeList.innerHTML = "<h3>Planes:</h3>";
-      for (let name in planes) {
-        const plane = planes[name];
-        planeList.innerHTML += `<div><b>${name}</b> → ${plane.location}</div>`;
-      }
+      console.log("Discord notified about plane movement");
+    } catch (err) {
+      console.error("Failed to notify Discord:", err);
     }
 
-    loadPlanes();
-  </script>
+    alert(`${planeName} moved to ${newLoc}`);
+    // refresh local planes
+    const planesSnap = await db.ref("public/planes").get();
+    currentPlanes = planesSnap.val() || {};
+    renderPlanesModal();
+    await loadData();
+  } catch (e) {
+    console.error("Error moving plane:", e);
+    alert("Error moving plane: " + (e.message || e));
+  }
+}
+
+/* Planes modal button handlers */
+planesBtn.onclick = () => { renderPlanesModal(); show(planesModalBackdrop); };
+closePlanesBtn.onclick = () => show(dashboardView);
+
+addPlaneBtn.onclick = async () => {
+  const name = prompt("Enter plane name (unique):");
+  if (!name) return;
+  const location = prompt("Enter starting location:");
+  if (!location) return;
+  await db.ref("public/planes/" + name).set({
+    location,
+    createdAt: new Date().toISOString()
+  });
+  // refresh
+  const planesSnap = await db.ref("public/planes").get();
+  currentPlanes = planesSnap.val() || {};
+  renderPlanesModal();
+  alert("Plane added.");
+};
+
+/* Keep a manual move button in case you prefer prompt-style */
+movePlaneBtn.onclick = async () => {
+  const name = prompt("Enter plane name to move:");
+  if (!name) return;
+  if (!currentPlanes || !currentPlanes[name]) {
+    // attempt to read directly from db
+    const snap = await db.ref("public/planes/" + name).get();
+    if (!snap.exists()) return alert("Plane not found.");
+  }
+  movePlane(name);
+};
+
+/* =========================
+    Add Flight (scanner-based) — simplified per your request:
+      - asks for code 555
+      - opens scanner
+      - on license scan: prompts for plane kind, dep, arr
+      - saves flight to scanned user's data/{user}/flights
+      - does NOT modify public planes or change condition
+========================= */
+let addFlightQr = null;
+
+addFlightBtn.onclick = async () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code");
+  show(scannerView);
+  await startAddFlightScanner();
+};
+
+async function startAddFlightScanner() {
+  await stopScanner().catch(()=>{});
+  await stopWarningScanner().catch(()=>{});
+  await stopAddFlightScanner().catch(()=>{});
+
+  addFlightQr = new Html5Qrcode("reader");
+  try {
+    await addFlightQr.start(
+      { facingMode: "environment" },
+      scanConfig,
+      onAddFlightScanSuccess,
+      onScanFailure
+    );
+  } catch (e) {
+    console.error("Could not start add-flight scanner:", e);
+    alert("Could not start camera. Check permissions.");
+    show(dashboardView);
+  }
+}
+
+async function stopAddFlightScanner() {
+  if (addFlightQr && (addFlightQr.getState && addFlightQr.getState() === Html5QrcodeScannerState.SCANNING)) {
+    try { await addFlightQr.stop(); } catch(_) {}
+  }
+  if (addFlightQr) {
+    try { await addFlightQr.clear(); } catch(_) {}
+    addFlightQr = null;
+  }
+}
+
+async function onAddFlightScanSuccess(decodedText) {
+  try {
+    await stopAddFlightScanner();
+    const url = new URL(decodedText, window.location.origin);
+    const user = url.searchParams.get("validate");
+    const lid  = url.searchParams.get("lid");
+    if (!user || !lid) {
+      alert("Invalid QR content. Not a license QR.");
+      show(dashboardView);
+      return;
+    }
+
+    const licSnap = await db.ref("data/" + user + "/license").get();
+    if (!licSnap.exists()) {
+      alert("No license found for scanned user.");
+      show(dashboardView);
+      return;
+    }
+    const lic = licSnap.val();
+    if (lic.licenseId !== lid) {
+      alert("License ID mismatch. Flight not recorded.");
+      show(dashboardView);
+      return;
+    }
+    // expiry / suspension checks
+    if (new Date(lic.expiry) < new Date()) {
+      alert("License expired. Flight not recorded.");
+      show(dashboardView);
+      return;
+    }
+    const warnings = Math.min(lic.warnings || 0, 3);
+    if (warnings >= 3) {
+      alert("License is suspended (3 warnings). Flight not recorded.");
+      show(dashboardView);
+      return;
+    }
+
+    // Prompt for plane kind and route (no plane registry change)
+    const planeKind = (prompt("Plane kind (e.g. 737):") || "").trim();
+    if (!planeKind) { alert("No plane kind entered. Aborted."); show(dashboardView); return; }
+    const dep = (prompt("Departure (from):") || "").trim();
+    if (!dep) { alert("No departure entered. Aborted."); show(dashboardView); return; }
+    const arr = (prompt("Arrival (to):") || "").trim();
+    if (!arr) { alert("No arrival entered. Aborted."); show(dashboardView); return; }
+
+    // Save flight to scanned user's data
+    const flightsRef = db.ref(`data/${user}/flights`);
+    const flightsSnap = await flightsRef.get();
+    const flights = flightsSnap.val() || [];
+    flights.push({
+      callSign: planeKind,
+      dep,
+      arr,
+      at: new Date().toISOString()
+    });
+    await flightsRef.set(flights);
+
+    alert(`Flight recorded for ${user}: ${planeKind} (${dep} → ${arr}).`);
+    // refresh data (for the current logged-in user only)
+    if (user === currentUser) await loadData();
+    await loadData(); // refresh current user's view in case it's them
+    show(dashboardView);
+  } catch (e) {
+    console.error("Error in add-flight scan:", e);
+    alert("Error recording flight: " + (e && e.message ? e.message : e));
+    show(dashboardView);
+  }
+}
+
+/* =========================
+    Add Airline, Fire, License, Warning, etc. (unchanged flows)
+    (code sections kept identical to your original behaviors)
+========================= */
+addAirlineBtn.onclick = async () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code");
+
+  const airlineName = prompt("Enter airline name:");
+  if (!airlineName) return;
+
+  const points = prompt("How many points per week?");
+  const pointsPerWeek = parseInt(points, 10);
+  if (isNaN(pointsPerWeek) || pointsPerWeek <= 0) {
+    return alert("Please enter a valid number of points.");
+  }
+
+  const ref = db.ref("data/" + currentUser + "/airline");
+  await ref.set({
+    name: airlineName,
+    pointsPerWeek: pointsPerWeek,
+    lastAwarded: new Date().toISOString()
+  });
+  alert(`Airline "${airlineName}" added. You will receive ${pointsPerWeek} points per week.`);
+  await loadData();
+};
+
+fireMyselfBtn.onclick = async () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code");
+
+  if (confirm("Are you sure you want to fire yourself? This will delete all of your data!")) {
+    await db.ref("data/" + currentUser).remove();
+    alert("All of your data has been deleted. You have been fired.");
+    logoutBtn.click();
+  }
+};
+
+/* Signature pad code (unchanged) */
+let drawing = false;
+let last = null;
+const ctx = sigPad.getContext("2d");
+function resizeSigPad() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = sigPad.getBoundingClientRect();
+  sigPad.width = Math.round(rect.width * dpr);
+  sigPad.height = Math.round(rect.height * dpr);
+  ctx.scale(dpr, dpr);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = "#111827";
+  clearSignature(true);
+}
+function clearSignature(skipFill) {
+  if (!skipFill) {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,sigPad.width,sigPad.height);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,sigPad.width, sigPad.height);
+}
+
+function startDraw(x, y) { drawing = true; last = {x, y}; }
+function drawTo(x, y) {
+  if (!drawing) return;
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  last = {x, y};
+}
+function endDraw() { drawing = false; last = null; }
+
+function pointerPos(e) {
+  const rect = sigPad.getBoundingClientRect();
+  if (e.touches && e.touches[0]) {
+    return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+  }
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+sigPad.addEventListener("mousedown", e => startDraw(...Object.values(pointerPos(e))));
+sigPad.addEventListener("mousemove", e => drawTo(...Object.values(pointerPos(e))));
+window.addEventListener("mouseup", endDraw);
+sigPad.addEventListener("touchstart", e => { e.preventDefault(); startDraw(...Object.values(pointerPos(e))); }, {passive:false});
+sigPad.addEventListener("touchmove", e => { e.preventDefault(); drawTo(...Object.values(pointerPos(e))); }, {passive:false});
+sigPad.addEventListener("touchend", endDraw);
+
+window.addEventListener("resize", resizeSigPad);
+
+addLicenseBtn.onclick = () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code");
+  licenseModalBackdrop.classList.remove("hidden");
+  resizeSigPad();
+};
+
+cancelLicenseBtn.onclick = () => {
+  licenseModalBackdrop.classList.add("hidden");
+};
+
+clearSigBtn.onclick = () => clearSignature();
+
+saveLicenseBtn.onclick = async () => {
+  const signatureDataUrl = sigPad.toDataURL("image/png");
+  if (signatureDataUrl.length < 2000) {
+    alert("Please draw your signature.");
+    return;
+  }
+  const weeks = parseInt(durationSelect.value, 10);
+  const expiry = new Date();
+  expiry.setDate(expiry.getDate() + weeks * 7);
+  const licenseId = "LIC-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+
+  await db.ref("data/" + currentUser + "/license").set({
+    signatureDataUrl,
+    expiry: expiry.toISOString().split("T")[0],
+    licenseId,
+    warnings: 0
+  });
+
+  licenseModalBackdrop.classList.add("hidden");
+  await loadData();
+};
+
+/* =========================
+    QR Scanners: validate & warnings (unchanged)
+========================= */
+let html5Qr; // main validate scanner
+let warningQr; // warning scanner
+
+openScannerBtn.onclick = () => { show(scannerView); startScanner(); };
+closeScannerBtn.onclick = async () => { await stopScanner(); show(dashboardView); };
+
+addWarningBtn.onclick = () => { show(warningScannerView); startWarningScanner(); };
+closeWarningScannerBtn.onclick = async () => { await stopWarningScanner(); show(dashboardView); };
+
+const scanConfig = {
+  fps: 45,
+  qrbox: { width: 280, height: 280 },
+  rememberLastUsedCamera: true,
+  aspectRatio: 1.7778,
+  experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+  formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+};
+
+async function startScanner() {
+  if (!html5Qr) html5Qr = new Html5Qrcode("reader");
+  try {
+    await html5Qr.start(
+      { facingMode: "environment" },
+      scanConfig,
+      onScanSuccess,
+      onScanFailure
+    );
+  } catch (e) {
+    console.error(e);
+    alert("Could not start camera. Check permissions.");
+  }
+}
+async function stopScanner() {
+  if (html5Qr && (html5Qr.getState && html5Qr.getState() === Html5QrcodeScannerState.SCANNING)) {
+    await html5Qr.stop();
+  }
+  if (html5Qr) await html5Qr.clear();
+}
+function onScanSuccess(decodedText) {
+  stopScanner().then(() => { window.location.href = decodedText; });
+}
+function onScanFailure(_) { /* ignore frequent decode errors */ }
+
+async function startWarningScanner() {
+  if (!warningQr) warningQr = new Html5Qrcode("warningReader");
+  try {
+    await warningQr.start(
+      { facingMode: "environment" },
+      scanConfig,
+      onWarningScanSuccess,
+      (_) => {}
+    );
+  } catch (e) {
+    console.error(e);
+    alert("Could not start camera for warning scanner. Check permissions.");
+  }
+}
+async function stopWarningScanner() {
+  if (warningQr && (warningQr.getState && warningQr.getState() === Html5QrcodeScannerState.SCANNING)) {
+    await warningQr.stop();
+  }
+  if (warningQr) await warningQr.clear();
+}
+
+async function onWarningScanSuccess(decodedText) {
+  try {
+    await stopWarningScanner();
+    const url = new URL(decodedText, window.location.origin);
+    const user = url.searchParams.get("validate");
+    const lid  = url.searchParams.get("lid");
+    if (!user || !lid) {
+      alert("Invalid QR content. Not a license QR.");
+      show(dashboardView);
+      return;
+    }
+    const ref = db.ref("data/" + user + "/license");
+    const snap = await ref.get();
+    if (!snap.exists()) {
+      alert("No license found for scanned user.");
+      show(dashboardView);
+      return;
+    }
+    const lic = snap.val();
+    if (lic.licenseId !== lid) {
+      alert("License ID mismatch. Warning not added.");
+      show(dashboardView);
+      return;
+    }
+    const currentWarnings = Math.min(lic.warnings || 0, 3);
+    if (currentWarnings >= 3) {
+      alert("This license already has 3 warnings (SUSPENDED).");
+      show(dashboardView);
+      return;
+    }
+    const newWarnings = currentWarnings + 1;
+    await ref.update({ warnings: newWarnings });
+    alert(`Warning added to ${user}. Now ${newWarnings}/3${newWarnings >= 3 ? " — SUSPENDED" : ""}.`);
+    if (user === currentUser) await loadData();
+    show(dashboardView);
+  } catch (e) {
+    console.error(e);
+    alert("Error adding warning: " + e.message);
+    show(dashboardView);
+  }
+}
+
+/* =========================
+    Validation mode (?validate=USER&lid=ID) and deep-links
+========================= */
+async function validateLicense(user, lid) {
+  show(validateView);
+  const box = document.getElementById("validationResult");
+  box.textContent = "Checking license…";
+  try {
+    const snap = await db.ref("data/" + user + "/license").get();
+    const ok = snap.exists() &&
+               (!lid || (snap.val().licenseId === lid)) &&
+               new Date(snap.val().expiry) >= new Date();
+    const warnings = Math.min((snap.val() && snap.val().warnings) || 0, 3);
+    const suspended = warnings >= 3;
+    if (ok && !suspended) {
+      box.innerHTML = `
+        <h2 class="valid">VALID LICENSE ✅</h2>
+        <p><strong>User:</strong> ${user}</p>
+        <p><strong>License ID:</strong> ${snap.val().licenseId}</p>
+        <p><strong>Expires:</strong> ${snap.val().expiry}</p>
+        <p><strong>Warnings:</strong> ${warnings}/3</p>
+      `;
+    } else if (suspended) {
+      box.innerHTML = `
+        <h2 class="invalid">NOT VALID ❌</h2>
+        <p>License is suspended due to 3 warnings.</p>
+        <p><strong>User:</strong> ${user}</p>
+        <p><strong>License ID:</strong> ${snap.val().licenseId}</p>
+        <p><strong>Warnings:</strong> ${warnings}/3</p>
+      `;
+    } else {
+      box.innerHTML = `<h2 class="invalid">NOT VALID ❌</h2><p>Expired, missing, or mismatched ID.</p>`;
+    }
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = `<h2 class="invalid">ERROR</h2><p>${e.message}</p>`;
+  }
+}
+
+const qp = new URLSearchParams(location.search);
+if (qp.has("validate")) {
+  const user = qp.get("validate");
+  const lid  = qp.get("lid") || "";
+  validateLicense(user, lid);
+} else if (qp.has("scan")) {
+  show(scannerView);
+  startScanner();
+} else {
+  const saved = localStorage.getItem("ft_user");
+  if (saved) {
+    currentUser = saved;
+    ensureDataRoot().then(loadData).then(() => show(dashboardView));
+  } else {
+    show(loginView);
+  }
+}
+</script>
 </body>
 </html>
