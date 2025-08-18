@@ -25,10 +25,11 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg); 
     color: var(--fg);
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: hidden; /* Prevent horizontal scrolling on the body */
+    overflow-y: auto; /* Allow vertical scrolling on the body */
   }
 
+  /* shared */
   .btn { width: 100%; padding: 14px; border: 0; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; }
   .btn-primary { background: var(--primary); }
   .btn-blue { background: var(--blue); }
@@ -39,6 +40,7 @@
   .w-auto { width: auto; }
   .hidden { display: none !important; }
 
+  /* login */
   .centered { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
   .card {
     width: 100%; max-width: 430px; background: var(--card); border-radius: 16px; padding: 24px; box-shadow: var(--shadow);
@@ -53,6 +55,7 @@
   input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px rgba(124,58,237,.12); }
   .error { color: #dc2626; min-height: 1.2em; margin-top: 8px; }
 
+  /* app header & layout */
   header {
     position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--border);
     display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
@@ -65,9 +68,9 @@
     padding: 16px; 
     display: grid; 
     gap: 20px; 
-    min-width: 100vw;
-    overflow-x: auto;
-    white-space: nowrap;
+    min-width: 100vw; /* Ensure main container fills the entire viewport width */
+    overflow-x: auto; /* Allow horizontal scrolling specifically within the main content */
+    white-space: nowrap; /* Prevent items from wrapping to the next line */
   }
   .card-section { background: #fff; border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
   .section-title { margin-bottom: 8px; }
@@ -88,6 +91,7 @@
   .qr-box { display: grid; justify-items: center; gap: 4px; }
   .muted { color: var(--muted); }
 
+  /* modal/backdrop */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,.4); display: grid; place-items: center; z-index: 1000;
   }
@@ -97,6 +101,7 @@
   .modal header { position: static; border: 0; padding: 0; margin-bottom: 8px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
 
+  /* signature pad */
   .sig-pad {
     width: 100%; height: 200px; border: 1px dashed var(--border); border-radius: 12px; background: #fff;
     touch-action: none;
@@ -104,11 +109,13 @@
   .sig-tools { display: flex; gap: 10px; margin: 8px 0 4px; }
   .tip { font-size: 13px; color: var(--muted); }
 
+  /* scanner view */
   #scannerView .card, #warningScannerView .card { max-width: 540px; }
   #reader, #warningReader {
     width: 100%; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border);
   }
 
+  /* validation card */
   .valid { color: #16a34a; }
   .invalid { color: #dc2626; }
 
@@ -120,15 +127,23 @@
     box-shadow: 0 0 0 4px rgba(239,68,68,.12);
   }
 
-  .cond { width: 160px; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-left: 10px; border: 1px solid #d1d5db; }
-  .cond-fill { height: 100%; transition: width .25s ease; }
+  /* condition bar */
+  .cond {
+    width: 160px; height: 10px; background: #e5e7eb; border-radius: 6px; overflow: hidden; margin-left: 10px;
+    border: 1px solid #d1d5db;
+  }
+  .cond-fill {
+    height: 100%; transition: width .25s ease;
+  }
   .cond-green { background: #22c55e; }
   .cond-amber { background: #f59e0b; }
   .cond-red   { background: #ef4444; }
 
   .plane-line { display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%; }
   .plane-meta { display:flex; gap:10px; align-items:center; }
-  .badge { padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; border:1px solid #fecaca; color:#991b1b; background:#fee2e2; }
+  .badge {
+    padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; border:1px solid #fecaca; color:#991b1b; background:#fee2e2;
+  }
 </style>
 </head>
 
@@ -182,7 +197,7 @@
       <h3 class="section-title">Flights</h3>
       <div id="flightsList" class="list"></div>
       <div class="row" style="margin-top:10px;">
-        <!-- Add Flight now triggers scanner flow (code 555 -> scan -> prompts -> save) -->
+        <!-- This Add Flight button now uses scanner-based flow (code 555 -> scan -> prompts -> save) -->
         <button id="addFlightBtn" class="btn btn-blue">Add Flight</button>
       </div>
     </div>
@@ -278,7 +293,7 @@
 
 <script>
 /* =========================
-    Firebase init (same config as your project)
+    Firebase init
 ========================= */
 const firebaseConfig = {
   apiKey: "AIzaSyBF45eYjtdN7xAwPnhPNRMROcWiylSJRjA",
@@ -472,9 +487,7 @@ function renderFlights(flights) {
   (flights || []).forEach(f => {
     const div = document.createElement("div");
     div.className = "flight-item";
-    // Show callSign (we store plane kind there), dep -> arr and date
-    const at = f.at ? new Date(f.at).toLocaleString() : "";
-    div.innerHTML = `<span>${f.callSign} (${f.dep} → ${f.arr})</span><small class="muted">${at}</small>`;
+    div.innerHTML = `<span>${f.callSign} (${f.dep} → ${f.arr})</span>`;
     flightsList.appendChild(div);
   });
   flightCount.textContent = `${(flights || []).length} Flights`;
@@ -485,7 +498,10 @@ function renderLicense(license) {
     licenseInfo.textContent = "No license";
     return;
   }
+  // Build QR container id
   const qrid = "qrcode_" + Math.random().toString(36).slice(2);
+
+  // Warnings display & suspended state
   const warnings = Math.min(license.warnings || 0, 3);
   const suspended = warnings >= 3;
 
@@ -508,8 +524,10 @@ function renderLicense(license) {
     </div>
   `;
 
+  // Bigger, higher-contrast QR for easier scanning
   const qrUrl = window.location.origin + window.location.pathname + "?validate=" + encodeURIComponent(currentUser) + "&lid=" + encodeURIComponent(license.licenseId);
   const qrContainer = document.getElementById(qrid);
+  // Clear any prior QR content
   qrContainer.innerHTML = "";
   new QRCode(qrContainer, {
     text: qrUrl,
@@ -522,27 +540,31 @@ function renderLicense(license) {
 }
 
 function renderPoints(points) {
-  pointsCount.textContent = `${points || 0} Points`;
+  pointsCount.textContent = `${points} Points`;
 }
 
 /* =========================
-    Add Flight (scanner-based) — simplified per your request:
-      - asks for code 555
-      - opens scanner
-      - on license scan: prompts for plane kind, dep, arr
-      - saves flight to scanned user's data/{user}/flights
-      - does NOT modify public planes or change condition
+    Add Flight (scanner-based)
+    Flow:
+     - prompt code (555)
+     - open scanner
+     - scan license ?validate=USER&lid=ID
+     - prompt for plane id, dep, arr
+     - save flight under scanned user's data/{user}/flights
+     - update public/planes to add 1 to plane.flights and update condition
 ========================= */
 let addFlightQr = null;
 
 addFlightBtn.onclick = async () => {
   const code = prompt("Enter security code:");
   if (code !== "555") return alert("Wrong code");
+  // open scanner UI and start scan with add-flight handler
   show(scannerView);
   await startAddFlightScanner();
 };
 
 async function startAddFlightScanner() {
+  // stop any other scanners
   await stopScanner().catch(()=>{});
   await stopWarningScanner().catch(()=>{});
   await stopAddFlightScanner().catch(()=>{});
@@ -575,6 +597,7 @@ async function stopAddFlightScanner() {
 async function onAddFlightScanSuccess(decodedText) {
   try {
     await stopAddFlightScanner();
+    // parse URL to extract validate params
     const url = new URL(decodedText, window.location.origin);
     const user = url.searchParams.get("validate");
     const lid  = url.searchParams.get("lid");
@@ -584,6 +607,7 @@ async function onAddFlightScanSuccess(decodedText) {
       return;
     }
 
+    // get license of scanned user
     const licSnap = await db.ref("data/" + user + "/license").get();
     if (!licSnap.exists()) {
       alert("No license found for scanned user.");
@@ -596,7 +620,8 @@ async function onAddFlightScanSuccess(decodedText) {
       show(dashboardView);
       return;
     }
-    // expiry / suspension checks
+
+    // Optional: check expiry or suspension
     if (new Date(lic.expiry) < new Date()) {
       alert("License expired. Flight not recorded.");
       show(dashboardView);
@@ -609,30 +634,76 @@ async function onAddFlightScanSuccess(decodedText) {
       return;
     }
 
-    // Prompt for plane kind and route (no plane registry change)
-    const planeKind = (prompt("Plane kind (e.g. 737):") || "").trim();
-    if (!planeKind) { alert("No plane kind entered. Aborted."); show(dashboardView); return; }
+    // Ask for plane id and route
+    const planeId = (prompt("Plane ID (e.g. PLANE-XXXX):") || "").trim();
+    if (!planeId) {
+      alert("No plane ID entered. Aborted.");
+      show(dashboardView);
+      return;
+    }
     const dep = (prompt("Departure (from):") || "").trim();
     if (!dep) { alert("No departure entered. Aborted."); show(dashboardView); return; }
     const arr = (prompt("Arrival (to):") || "").trim();
     if (!arr) { alert("No arrival entered. Aborted."); show(dashboardView); return; }
 
-    // Save flight to scanned user's data
+    // load public planes once and search for the plane
+    const publicPlanesSnap = await db.ref("public/planes").get();
+    const publicPlanes = publicPlanesSnap.val() || {};
+    let found = null;
+    let foundLocation = null;
+    for (const loc of Object.keys(publicPlanes)) {
+      const arrPlanes = publicPlanes[loc] || [];
+      const idx = arrPlanes.findIndex(p => p.id === planeId);
+      if (idx !== -1) {
+        found = { plane: { ...arrPlanes[idx] }, index: idx, planesAtLocation: arrPlanes };
+        foundLocation = loc;
+        break;
+      }
+    }
+
+    if (!found) {
+      alert("Plane not found in public registry. Flight not recorded.");
+      show(dashboardView);
+      return;
+    }
+
+    // Backfill defaults
+    found.plane.flights = Number.isFinite(found.plane.flights) ? found.plane.flights : 0;
+    found.plane.condition = Number.isFinite(found.plane.condition) ? found.plane.condition : 100;
+
+    // Grounded check
+    if (found.plane.flights >= 25 || found.plane.condition <= 0) {
+      alert(`Plane ${found.plane.id} is grounded (flights: ${found.plane.flights}/25, condition: ${Math.max(0,found.plane.condition)}%). Flight not recorded.`);
+      show(dashboardView);
+      return;
+    }
+
+    // increment flights and reduce condition
+    found.plane.flights = Math.min(25, found.plane.flights + 1);
+    found.plane.condition = Math.max(0, Math.round((found.plane.condition - 4) * 10) / 10);
+
+    // write back updated plane array for that location
+    const locationRef = db.ref(`public/planes/${foundLocation}`);
+    const planesAtLoc = found.planesAtLocation;
+    planesAtLoc[found.index] = found.plane;
+    await locationRef.set(planesAtLoc);
+
+    // Save flight record to scanned user's data
     const flightsRef = db.ref(`data/${user}/flights`);
     const flightsSnap = await flightsRef.get();
     const flights = flightsSnap.val() || [];
     flights.push({
-      callSign: planeKind,
+      callSign: planeId,
       dep,
       arr,
       at: new Date().toISOString()
     });
     await flightsRef.set(flights);
 
-    alert(`Flight recorded for ${user}: ${planeKind} (${dep} → ${arr}).`);
-    // refresh data (for the current logged-in user only)
-    if (user === currentUser) await loadData();
-    await loadData(); // refresh current user's view in case it's them
+    alert(`Flight recorded for ${user} on ${planeId} (${dep} → ${arr}).\nPlane flights: ${found.plane.flights}/25 • Condition: ${found.plane.condition}%`);
+    // refresh local data & UI
+    await loadData();
+    renderPlaneLocations();
     show(dashboardView);
   } catch (e) {
     console.error("Error in add-flight scan:", e);
@@ -642,8 +713,7 @@ async function onAddFlightScanSuccess(decodedText) {
 }
 
 /* =========================
-    Add Airline, Fire, License, Warning, etc. (unchanged flows)
-    (code sections kept identical to your original behaviors)
+    Add Airline (locked by 555)
 ========================= */
 addAirlineBtn.onclick = async () => {
   const code = prompt("Enter security code:");
@@ -668,6 +738,9 @@ addAirlineBtn.onclick = async () => {
   await loadData();
 };
 
+/* =========================
+    "Fire Myself" (locked by 555)
+========================= */
 fireMyselfBtn.onclick = async () => {
   const code = prompt("Enter security code:");
   if (code !== "555") return alert("Wrong code");
@@ -675,11 +748,13 @@ fireMyselfBtn.onclick = async () => {
   if (confirm("Are you sure you want to fire yourself? This will delete all of your data!")) {
     await db.ref("data/" + currentUser).remove();
     alert("All of your data has been deleted. You have been fired.");
-    logoutBtn.click();
+    logoutBtn.click(); // force log out
   }
 };
 
-/* Signature pad code (unchanged) */
+/* =========================
+    Signature Pad + Add License (code 555)
+========================= */
 let drawing = false;
 let last = null;
 const ctx = sigPad.getContext("2d");
@@ -770,7 +845,7 @@ saveLicenseBtn.onclick = async () => {
 };
 
 /* =========================
-    QR Scanners: validate & warnings (unchanged)
+    QR Scanners (validate & warnings)
 ========================= */
 let html5Qr; // main validate scanner
 let warningQr; // warning scanner
@@ -781,9 +856,10 @@ closeScannerBtn.onclick = async () => { await stopScanner(); show(dashboardView)
 addWarningBtn.onclick = () => { show(warningScannerView); startWarningScanner(); };
 closeWarningScannerBtn.onclick = async () => { await stopWarningScanner(); show(dashboardView); };
 
+// Faster scanner config
 const scanConfig = {
-  fps: 45,
-  qrbox: { width: 280, height: 280 },
+  fps: 45, // faster scan rate
+  qrbox: { width: 280, height: 280 }, // larger box for stability
   rememberLastUsedCamera: true,
   aspectRatio: 1.7778,
   experimentalFeatures: { useBarCodeDetectorIfSupported: true },
@@ -836,6 +912,7 @@ async function stopWarningScanner() {
   if (warningQr) await warningQr.clear();
 }
 
+// Parse ?validate=USER&lid=ID from scanned URL, then add a warning to that license (max 3)
 async function onWarningScanSuccess(decodedText) {
   try {
     await stopWarningScanner();
@@ -869,7 +946,7 @@ async function onWarningScanSuccess(decodedText) {
     const newWarnings = currentWarnings + 1;
     await ref.update({ warnings: newWarnings });
     alert(`Warning added to ${user}. Now ${newWarnings}/3${newWarnings >= 3 ? " — SUSPENDED" : ""}.`);
-    if (user === currentUser) await loadData();
+    if (user === currentUser) await loadData(); // refresh if it's our own license
     show(dashboardView);
   } catch (e) {
     console.error(e);
@@ -879,7 +956,7 @@ async function onWarningScanSuccess(decodedText) {
 }
 
 /* =========================
-    Validation mode (?validate=USER&lid=ID) and deep-links
+    Validation mode (?validate=USER&lid=ID)
 ========================= */
 async function validateLicense(user, lid) {
   show(validateView);
@@ -917,12 +994,179 @@ async function validateLicense(user, lid) {
   }
 }
 
+/* =========================
+    Planes & Routes (+ Condition & Flight Cap)
+========================= */
+routesBtn.onclick = () => { renderRoutes(); show(routesModalBackdrop); };
+closeRoutesBtn.onclick = () => { show(dashboardView); };
+
+planesBtn.onclick = () => { renderPlaneLocations(); show(planesModalBackdrop); };
+closePlanesBtn.onclick = () => { show(dashboardView); };
+
+addPlaneBtn.onclick = async () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code.");
+
+  const planeType = prompt("What type is the plane?");
+  if (!planeType) return;
+
+  const destination = prompt("Which country/location to put it in? Available: " + locations.join(", "));
+  if (!destination || !locations.includes(destination.toUpperCase())) {
+    return alert("Invalid location. Please try again.");
+  }
+
+  const plane = {
+    id: `PLANE-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    type: planeType,
+    flights: 0,            // NEW
+    condition: 100         // NEW (percent)
+  };
+
+  const planesRef = db.ref(`public/planes/${destination.toUpperCase()}`);
+  const snap = await planesRef.get();
+  const planesAtLocation = snap.val() || [];
+  planesAtLocation.push(plane);
+
+  await planesRef.set(planesAtLocation);
+  alert(`Plane ${plane.id} (${plane.type}) added to ${destination.toUpperCase()}.`);
+  await loadData();
+  renderPlaneLocations(); // Refresh the list
+};
+
+movePlaneBtn.onclick = async () => {
+  const code = prompt("Enter security code:");
+  if (code !== "555") return alert("Wrong code.");
+
+  const planeId = prompt("Enter the ID of the plane to move:");
+  if (!planeId) return;
+
+  const newLocation = prompt("Where to move it? Available: " + locations.join(", "));
+  if (!newLocation || !locations.includes(newLocation.toUpperCase())) {
+    return alert("Invalid location. Please try again.");
+  }
+
+  let foundPlane = null;
+  let oldLocation = null;
+
+  // Find the plane's current location
+  for (const loc of locations) {
+    const planesAtLoc = currentPlanes[loc.toUpperCase()] || [];
+    const planeIndex = planesAtLoc.findIndex(p => p.id === planeId);
+    if (planeIndex !== -1) {
+      foundPlane = { ...planesAtLoc[planeIndex] }; // copy
+      oldLocation = loc.toUpperCase();
+      break;
+    }
+  }
+
+  if (!foundPlane) {
+    return alert("Plane not found with that ID.");
+  }
+
+  // Defaults in case older planes don't have new fields yet
+  foundPlane.flights = Number.isFinite(foundPlane.flights) ? foundPlane.flights : 0;
+  foundPlane.condition = Number.isFinite(foundPlane.condition) ? foundPlane.condition : 100;
+
+  // Grounded check
+  if (foundPlane.flights >= 25 || foundPlane.condition <= 0) {
+    return alert(`Plane ${foundPlane.id} is grounded (flights: ${foundPlane.flights}/25, condition: ${Math.max(0,foundPlane.condition)}%).`);
+  }
+
+  // Consume one flight
+  foundPlane.flights = Math.min(25, foundPlane.flights + 1);
+  // Drop 4% per flight to reach 0 at 25 moves
+  foundPlane.condition = Math.max(0, Math.round((foundPlane.condition - 4) * 10) / 10);
+
+  // Remove plane from old location
+  const oldPlanesRef = db.ref(`public/planes/${oldLocation}`);
+  const oldPlanes = (await oldPlanesRef.get()).val() || [];
+  const newOldPlanes = oldPlanes.filter(p => p.id !== planeId);
+  await oldPlanesRef.set(newOldPlanes);
+
+  // Add plane to new location (with updated state)
+  const newPlanesRef = db.ref(`public/planes/${newLocation.toUpperCase()}`);
+  const newPlanes = (await newPlanesRef.get()).val() || [];
+  newPlanes.push(foundPlane);
+  await newPlanesRef.set(newPlanes);
+
+  const groundedNow = (foundPlane.flights >= 25 || foundPlane.condition <= 0);
+  alert(`Plane ${planeId} moved from ${oldLocation} to ${newLocation.toUpperCase()}.\nFlights: ${foundPlane.flights}/25 • Condition: ${foundPlane.condition}%${groundedNow ? " • Now GROUNDED" : ""}`);
+  await loadData();
+  renderPlaneLocations(); // Refresh the list
+};
+
+function renderRoutes() {
+  routesList.innerHTML = "";
+  routes.forEach(route => {
+    const div = document.createElement("div");
+    div.className = "flight-item";
+    div.innerHTML = `<span>${route}</span>`;
+    routesList.appendChild(div);
+  });
+}
+
+function condClass(pct){
+  if (pct > 50) return "cond-green";
+  if (pct > 20) return "cond-amber";
+  return "cond-red";
+}
+
+function renderPlaneLocations() {
+  planesList.innerHTML = "";
+  locations.forEach(location => {
+    const div = document.createElement("div");
+    div.className = "plane-item";
+    div.innerHTML = `<span>${location}</span>`;
+    div.onclick = () => renderPlanesAtLocation(location);
+    planesList.appendChild(div);
+  });
+}
+
+function renderPlanesAtLocation(location) {
+  const planes = currentPlanes[location.toUpperCase()] || [];
+  planesList.innerHTML = ""; // Clear list
+
+  if (planes.length === 0) {
+    planesList.innerHTML = `<p class="muted">No planes found at ${location}.</p>`;
+  } else {
+    planes.forEach(plane => {
+      // Backfill defaults if older data
+      const flights = Number.isFinite(plane.flights) ? plane.flights : 0;
+      const condition = Number.isFinite(plane.condition) ? plane.condition : 100;
+      const grounded = (flights >= 25 || condition <= 0);
+
+      const line = document.createElement("div");
+      line.className = "flight-item";
+      line.innerHTML = `
+        <div class="plane-line">
+          <div class="plane-meta">
+            <strong>${plane.id}</strong> <span class="muted">(${plane.type})</span>
+            ${grounded ? '<span class="badge">GROUNDED</span>' : ''}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="muted" title="Flights used">✈️ ${flights}/25</span>
+            <div class="cond" title="Condition">
+              <div class="cond-fill ${condClass(condition)}" style="width:${Math.max(0,Math.min(100,condition))}%;"></div>
+            </div>
+            <span class="muted">${Math.max(0,Math.min(100,condition))}%</span>
+          </div>
+        </div>
+      `;
+      planesList.appendChild(line);
+    });
+  }
+}
+
+/* =========================
+    Deep-links & session
+========================= */
 const qp = new URLSearchParams(location.search);
 if (qp.has("validate")) {
   const user = qp.get("validate");
   const lid  = qp.get("lid") || "";
   validateLicense(user, lid);
 } else if (qp.has("scan")) {
+  // direct scanner mode (no login required)
   show(scannerView);
   startScanner();
 } else {
