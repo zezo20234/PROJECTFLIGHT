@@ -465,9 +465,6 @@ async function loadData() {
   renderLicense(data.license);
   renderFlights(data.flights || []);
   renderPoints(data.points || 0);
-
-  // Render planes modal content (keeps it fresh)
-  renderPlanesModal();
 }
 
 function renderFlights(flights) {
@@ -527,108 +524,6 @@ function renderLicense(license) {
 function renderPoints(points) {
   pointsCount.textContent = `${points || 0} Points`;
 }
-
-/* =========================
-    Planes modal rendering and move handling (Discord webhook)
-========================= */
-const discordWebhook = "https://discord.com/api/webhooks/1407114318964854846/hHYi-dw0ItK9KJty0tUyMa-oKWPsR-JkIKzLDqWdyx_Ukl9BmL7omuWqnW3SqySilKdC";
-
-function renderPlanesModal() {
-  planesList.innerHTML = "";
-  const keys = Object.keys(currentPlanes || {});
-  if (keys.length === 0) {
-    planesList.innerHTML = `<div class="muted">No planes registered.</div>`;
-    return;
-  }
-  keys.forEach(name => {
-    const plane = currentPlanes[name] || {};
-    const div = document.createElement("div");
-    div.className = "plane-item";
-    const left = document.createElement("div");
-    left.innerHTML = `<strong>${name}</strong><div class="muted" style="font-size:13px;">${plane.location || "—"}</div>`;
-    const right = document.createElement("div");
-    right.style.display = "flex";
-    right.style.gap = "8px";
-    const moveBtn = document.createElement("button");
-    moveBtn.className = "btn btn-outline w-auto";
-    moveBtn.style.width = "auto";
-    moveBtn.textContent = "Move";
-    moveBtn.onclick = () => movePlane(name);
-    right.appendChild(moveBtn);
-    div.appendChild(left);
-    div.appendChild(right);
-    planesList.appendChild(div);
-  });
-}
-
-async function movePlane(planeName) {
-  try {
-    const newLoc = prompt(`Enter new location for ${planeName}:`);
-    if (!newLoc) return alert("Move canceled (no location).");
-
-    // Update Firebase
-    await db.ref("public/planes/" + planeName).update({
-      location: newLoc,
-      movedAt: new Date().toISOString()
-    });
-
-    // Notify Discord
-    try {
-      await fetch(discordWebhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: `✈️ The plane **${planeName}** has been moved to **${newLoc}**`
-        })
-      });
-      console.log("Discord notified about plane movement");
-    } catch (err) {
-      console.error("Failed to notify Discord:", err);
-    }
-
-    alert(`${planeName} moved to ${newLoc}`);
-    // refresh local planes
-    const planesSnap = await db.ref("public/planes").get();
-    currentPlanes = planesSnap.val() || {};
-    renderPlanesModal();
-    await loadData();
-  } catch (e) {
-    console.error("Error moving plane:", e);
-    alert("Error moving plane: " + (e.message || e));
-  }
-}
-
-/* Planes modal button handlers */
-planesBtn.onclick = () => { renderPlanesModal(); show(planesModalBackdrop); };
-closePlanesBtn.onclick = () => show(dashboardView);
-
-addPlaneBtn.onclick = async () => {
-  const name = prompt("Enter plane name (unique):");
-  if (!name) return;
-  const location = prompt("Enter starting location:");
-  if (!location) return;
-  await db.ref("public/planes/" + name).set({
-    location,
-    createdAt: new Date().toISOString()
-  });
-  // refresh
-  const planesSnap = await db.ref("public/planes").get();
-  currentPlanes = planesSnap.val() || {};
-  renderPlanesModal();
-  alert("Plane added.");
-};
-
-/* Keep a manual move button in case you prefer prompt-style */
-movePlaneBtn.onclick = async () => {
-  const name = prompt("Enter plane name to move:");
-  if (!name) return;
-  if (!currentPlanes || !currentPlanes[name]) {
-    // attempt to read directly from db
-    const snap = await db.ref("public/planes/" + name).get();
-    if (!snap.exists()) return alert("Plane not found.");
-  }
-  movePlane(name);
-};
 
 /* =========================
     Add Flight (scanner-based) — simplified per your request:
