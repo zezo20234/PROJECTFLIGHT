@@ -129,25 +129,6 @@
   .plane-line { display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%; }
   .plane-meta { display:flex; gap:10px; align-items:center; }
   .badge { padding: 4px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; border:1px solid #fecaca; color:#991b1b; background:#fee2e2; }
-
-  /* Planes stage styling */
-  .planes-stage {
-    width: 100%; height: 320px; border: 1px solid var(--border); border-radius: 12px; position: relative;
-    background: linear-gradient(180deg,#ffffff,#f8fafc);
-    overflow: hidden;
-  }
-  .planes-stage .plane-marker {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    width: 96px; height: 40px; padding: 6px 8px;
-    border-radius: 8px; display: flex; gap: 8px; align-items: center; justify-content: center;
-    background: #fff; border: 1px solid #d1d5db; box-shadow: 0 6px 16px rgba(2,6,23,.06);
-    user-select: none; touch-action: none; cursor: grab;
-  }
-  .plane-marker.dragging { cursor: grabbing; opacity: .92; }
-  .plane-marker .plane-name { font-weight: 800; font-size: 13px; }
-  .plane-controls { display:flex; gap:8px; margin-top:10px; }
-  .small { width:120px; padding:8px; border-radius:8px; font-weight:700; }
 </style>
 </head>
 
@@ -277,25 +258,15 @@
 <div id="planesModalBackdrop" class="modal-backdrop hidden">
   <div class="modal">
     <header>
-      <div class="row" style="align-items:center; width:100%;">
-        <h3 style="margin-right:auto;">Planes</h3>
-        <div style="display:flex; gap:8px;">
-          <button id="addPlaneBtn" class="btn btn-primary w-auto">Add Plane</button>
-          <button id="refreshPlanesBtn" class="btn btn-outline w-auto">Refresh</button>
-          <button id="closePlanesBtn" class="btn btn-outline w-auto">Close</button>
-        </div>
+      <div class="row">
+        <h3>Planes</h3>
+        <button id="addPlaneBtn" class="btn btn-primary w-auto">Add Plane</button>
+        <button id="movePlaneBtn" class="btn btn-blue w-auto">Move Plane</button>
       </div>
     </header>
-    <div id="planesStageContainer">
-      <div class="planes-stage" id="planesStage"></div>
-      <div class="plane-controls">
-        <input id="newPlaneName" placeholder="New plane name (e.g. A320)" class="small" />
-        <button id="createPlaneBtn" class="btn btn-blue w-auto" style="width:auto; padding:10px 14px;">Create</button>
-      </div>
-    </div>
-    <div style="margin-top:12px;">
-      <h4>Registered planes (public/planes)</h4>
-      <div id="planesList" class="list"></div>
+    <div id="planesList" class="list"></div>
+    <div class="modal-actions">
+      <button id="closePlanesBtn" class="btn btn-outline w-auto">Close</button>
     </div>
   </div>
 </div>
@@ -388,12 +359,9 @@ const planesModalBackdrop = document.getElementById("planesModalBackdrop");
 const planesList = document.getElementById("planesList");
 const closePlanesBtn = document.getElementById("closePlanesBtn");
 const addPlaneBtn = document.getElementById("addPlaneBtn");
-const refreshPlanesBtn = document.getElementById("refreshPlanesBtn");
-const planesStage = document.getElementById("planesStage");
-const createPlaneBtn = document.getElementById("createPlaneBtn");
-const newPlaneName = document.getElementById("newPlaneName");
+const movePlaneBtn = document.getElementById("movePlaneBtn");
 
-/* Locations and routes */
+// Define locations and hard-coded routes
 const locations = ["PUNTA CANA", "LARNACA", "GRAN CANARIA", "MENORCA", "LONDON GATWICK", "AKROTIRI", "KITTILA"];
 const routes = [
   "PUNTA CANA TO MENORCA",
@@ -497,7 +465,6 @@ async function loadData() {
   renderLicense(data.license);
   renderFlights(data.flights || []);
   renderPoints(data.points || 0);
-  renderPlanesUI();
 }
 
 function renderFlights(flights) {
@@ -560,6 +527,11 @@ function renderPoints(points) {
 
 /* =========================
     Add Flight (scanner-based) — simplified per your request:
+      - asks for code 555
+      - opens scanner
+      - on license scan: prompts for plane kind, dep, arr
+      - saves flight to scanned user's data/{user}/flights
+      - does NOT modify public planes or change condition
 ========================= */
 let addFlightQr = null;
 
@@ -670,7 +642,8 @@ async function onAddFlightScanSuccess(decodedText) {
 }
 
 /* =========================
-    Add Airline, Fire, License, Warning, etc.
+    Add Airline, Fire, License, Warning, etc. (unchanged flows)
+    (code sections kept identical to your original behaviors)
 ========================= */
 addAirlineBtn.onclick = async () => {
   const code = prompt("Enter security code:");
@@ -959,226 +932,6 @@ if (qp.has("validate")) {
     ensureDataRoot().then(loadData).then(() => show(dashboardView));
   } else {
     show(loginView);
-  }
-}
-
-/* =========================
-    Planes UI + drag & Discord webhook integration
-========================= */
-
-planesBtn.onclick = () => {
-  if (!currentUser) return alert("Please log in to manage planes.");
-  show(planesModalBackdrop);
-  renderPlanesUI();
-};
-
-closePlanesBtn.onclick = () => {
-  show(dashboardView);
-};
-
-refreshPlanesBtn.onclick = () => renderPlanesUI();
-
-// Add/create plane
-addPlaneBtn.onclick = async () => {
-  const code = prompt("Enter security code:");
-  if (code !== "555") return alert("Wrong code");
-  const name = prompt("Plane name (e.g. A320):");
-  if (!name) return;
-  // default position center (50%,50%)
-  const newPlaneRef = db.ref("public/planes").push();
-  await newPlaneRef.set({
-    name,
-    xPercent: 50,
-    yPercent: 50,
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser || "unknown"
-  });
-  await loadData();
-  renderPlanesUI();
-};
-
-createPlaneBtn.onclick = async () => {
-  const name = newPlaneName.value.trim();
-  if (!name) return alert("Enter a plane name first.");
-  const newPlaneRef = db.ref("public/planes").push();
-  await newPlaneRef.set({
-    name,
-    xPercent: 50,
-    yPercent: 50,
-    createdAt: new Date().toISOString(),
-    createdBy: currentUser || "unknown"
-  });
-  newPlaneName.value = "";
-  await loadData();
-  renderPlanesUI();
-};
-
-/**
- * sendToDiscord: tries to POST the movement to the Discord webhook.
- * If the browser blocks the request (CORS) or it fails, we fallback to saving
- * the event to Firebase under public/moveEvents for server-side processing.
- */
-const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1407114318964854846/hHYi-dw0ItK9KJty0tUyMa-oKWPsR-JkIKzLDqWdyx_Ukl9BmL7omuWqnW3SqySilKdC";
-
-async function sendToDiscord(planeName, fromPos, toPos, movedBy) {
-  const content = `✈️ Plane **${planeName}** moved by **${movedBy || 'unknown'}**\nFrom: (${fromPos.xPercent.toFixed(1)}%, ${fromPos.yPercent.toFixed(1)}%) → To: (${toPos.xPercent.toFixed(1)}%, ${toPos.yPercent.toFixed(1)}%)\nTime: ${new Date().toISOString()}`;
-  try {
-    const res = await fetch(DISCORD_WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content })
-    });
-    if (!res.ok) {
-      // fallback: save to DB
-      console.warn("Discord webhook returned non-ok status:", res.status);
-      await db.ref("public/moveEvents").push({
-        planeName, fromPos, toPos, movedBy, at: new Date().toISOString(),
-        webhookStatus: res.status
-      });
-    }
-  } catch (err) {
-    console.warn("Discord webhook error (likely CORS or network). Saving to DB as fallback.", err);
-    await db.ref("public/moveEvents").push({
-      planeName, fromPos, toPos, movedBy, at: new Date().toISOString(),
-      error: (err && err.message) ? err.message : String(err)
-    });
-  }
-}
-
-/**
- * renderPlanesUI: shows the stage and list of planes. Planes are draggable.
- */
-function clearStage() {
-  while (planesStage.firstChild) planesStage.removeChild(planesStage.firstChild);
-  planesList.innerHTML = "";
-}
-
-function createPlaneMarker(key, planeData) {
-  const el = document.createElement("div");
-  el.className = "plane-marker";
-  el.dataset.key = key;
-  el.dataset.name = planeData.name || "PLANE";
-  const nameDiv = document.createElement("div");
-  nameDiv.className = "plane-name";
-  nameDiv.textContent = planeData.name || "PLANE";
-  el.appendChild(nameDiv);
-
-  // compute positions. use percent positions stored, fallback to random
-  const xPercent = typeof planeData.xPercent === "number" ? planeData.xPercent : 50;
-  const yPercent = typeof planeData.yPercent === "number" ? planeData.yPercent : 50;
-  el.style.left = xPercent + "%";
-  el.style.top  = yPercent + "%";
-
-  // Draggable implementation using pointer events
-  let dragging = false;
-  let startRect = null;
-  let offset = {x:0, y:0};
-  let fromPos = { xPercent, yPercent };
-
-  function onPointerDown(ev) {
-    ev.preventDefault();
-    if (!currentUser) return alert("Please login to move planes.");
-    dragging = true;
-    el.classList.add("dragging");
-    el.setPointerCapture(ev.pointerId);
-    startRect = planesStage.getBoundingClientRect();
-
-    // calculate pointer offset inside marker (so marker doesn't jump)
-    const markerRect = el.getBoundingClientRect();
-    offset.x = ev.clientX - markerRect.left - markerRect.width/2;
-    offset.y = ev.clientY - markerRect.top - markerRect.height/2;
-
-    // store fromPos for message
-    fromPos = {
-      xPercent: parseFloat(el.style.left) || xPercent,
-      yPercent: parseFloat(el.style.top)  || yPercent
-    };
-  }
-
-  function onPointerMove(ev) {
-    if (!dragging) return;
-    const rect = planesStage.getBoundingClientRect();
-    // compute new percent positions relative to stage
-    let px = ((ev.clientX - rect.left - offset.x) / rect.width) * 100;
-    let py = ((ev.clientY - rect.top - offset.y) / rect.height) * 100;
-    // clamp
-    px = Math.max(2, Math.min(98, px));
-    py = Math.max(2, Math.min(98, py));
-    el.style.left = px + "%";
-    el.style.top = py + "%";
-  }
-
-  async function onPointerUp(ev) {
-    if (!dragging) return;
-    dragging = false;
-    el.classList.remove("dragging");
-    try { el.releasePointerCapture(ev.pointerId); } catch(_) {}
-    const rect = planesStage.getBoundingClientRect();
-    // final percent positions
-    const finalX = parseFloat(el.style.left) || xPercent;
-    const finalY = parseFloat(el.style.top) || yPercent;
-
-    // update DB for this plane
-    const planeRef = db.ref("public/planes/" + key);
-    await planeRef.update({
-      xPercent: finalX,
-      yPercent: finalY,
-      lastMovedBy: currentUser || "unknown",
-      lastMovedAt: new Date().toISOString()
-    });
-
-    // Send to Discord (and fallback to DB if necessary)
-    const toPos = { xPercent: finalX, yPercent: finalY };
-    sendToDiscord(el.dataset.name, fromPos, toPos, currentUser || "unknown").catch(console.error);
-
-    // refresh list UI (to show updated metadata)
-    renderPlanesUI();
-  }
-
-  el.addEventListener("pointerdown", onPointerDown);
-  window.addEventListener("pointermove", onPointerMove);
-  window.addEventListener("pointerup", onPointerUp);
-
-  return el;
-}
-
-async function renderPlanesUI() {
-  clearStage();
-
-  // show planes in list
-  const planesRef = db.ref("public/planes");
-  const snap = await planesRef.get();
-  currentPlanes = snap.val() || {};
-
-  // Fill stage
-  for (const [key, planeData] of Object.entries(currentPlanes)) {
-    const marker = createPlaneMarker(key, planeData || {});
-    planesStage.appendChild(marker);
-    // Add entry to planesList
-    const li = document.createElement("div");
-    li.className = "plane-item";
-    const createdBy = planeData.createdBy || "unknown";
-    const lastMoved = planeData.lastMovedAt ? new Date(planeData.lastMovedAt).toLocaleString() : "never";
-    li.innerHTML = `<div><strong>${planeData.name || 'PLANE'}</strong><div class="muted">By: ${createdBy}</div></div><div class="muted" style="text-align:right"><div>Moved: ${lastMoved}</div><div>${(planeData.xPercent||'')}% , ${(planeData.yPercent||'')}%</div></div>`;
-    planesList.appendChild(li);
-  }
-
-  // If no planes exist, show hint
-  if (Object.keys(currentPlanes).length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "muted";
-    empty.textContent = "No planes registered. Use 'Create' or 'Add Plane' to add one.";
-    planesList.appendChild(empty);
-
-    // also show a visual hint in stage
-    const hint = document.createElement("div");
-    hint.style.position = "absolute";
-    hint.style.left = "50%";
-    hint.style.top = "50%";
-    hint.style.transform = "translate(-50%,-50%)";
-    hint.style.color = "var(--muted)";
-    hint.textContent = "No planes yet — create one.";
-    planesStage.appendChild(hint);
   }
 }
 </script>
