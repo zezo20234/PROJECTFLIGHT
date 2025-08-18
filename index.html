@@ -197,7 +197,6 @@
       <h3 class="section-title">Flights</h3>
       <div id="flightsList" class="list"></div>
       <div class="row" style="margin-top:10px;">
-        <!-- This Add Flight button now uses scanner-based flow (code 555 -> scan -> prompts -> save) -->
         <button id="addFlightBtn" class="btn btn-blue">Add Flight</button>
       </div>
     </div>
@@ -544,173 +543,23 @@ function renderPoints(points) {
 }
 
 /* =========================
-    Add Flight (scanner-based)
-    Flow:
-     - prompt code (555)
-     - open scanner
-     - scan license ?validate=USER&lid=ID
-     - prompt for plane id, dep, arr
-     - save flight under scanned user's data/{user}/flights
-     - update public/planes to add 1 to plane.flights and update condition
+    Add Flight (code 555)
 ========================= */
-let addFlightQr = null;
-
 addFlightBtn.onclick = async () => {
   const code = prompt("Enter security code:");
   if (code !== "555") return alert("Wrong code");
-  // open scanner UI and start scan with add-flight handler
-  show(scannerView);
-  await startAddFlightScanner();
+  const callSign = prompt("Call sign:");
+  const dep = prompt("Departure airport:");
+  const arr = prompt("Arrival airport:");
+  if (!callSign || !dep || !arr) return;
+
+  const ref = db.ref("data/" + currentUser + "/flights");
+  const snap = await ref.get();
+  const flights = snap.val() || [];
+  flights.push({ callSign, dep, arr, at: new Date().toISOString() });
+  await ref.set(flights);
+  await loadData();
 };
-
-async function startAddFlightScanner() {
-  // stop any other scanners
-  await stopScanner().catch(()=>{});
-  await stopWarningScanner().catch(()=>{});
-  await stopAddFlightScanner().catch(()=>{});
-
-  addFlightQr = new Html5Qrcode("reader");
-  try {
-    await addFlightQr.start(
-      { facingMode: "environment" },
-      scanConfig,
-      onAddFlightScanSuccess,
-      onScanFailure
-    );
-  } catch (e) {
-    console.error("Could not start add-flight scanner:", e);
-    alert("Could not start camera. Check permissions.");
-    show(dashboardView);
-  }
-}
-
-async function stopAddFlightScanner() {
-  if (addFlightQr && (addFlightQr.getState && addFlightQr.getState() === Html5QrcodeScannerState.SCANNING)) {
-    try { await addFlightQr.stop(); } catch(_) {}
-  }
-  if (addFlightQr) {
-    try { await addFlightQr.clear(); } catch(_) {}
-    addFlightQr = null;
-  }
-}
-
-async function onAddFlightScanSuccess(decodedText) {
-  try {
-    await stopAddFlightScanner();
-    // parse URL to extract validate params
-    const url = new URL(decodedText, window.location.origin);
-    const user = url.searchParams.get("validate");
-    const lid  = url.searchParams.get("lid");
-    if (!user || !lid) {
-      alert("Invalid QR content. Not a license QR.");
-      show(dashboardView);
-      return;
-    }
-
-    // get license of scanned user
-    const licSnap = await db.ref("data/" + user + "/license").get();
-    if (!licSnap.exists()) {
-      alert("No license found for scanned user.");
-      show(dashboardView);
-      return;
-    }
-    const lic = licSnap.val();
-    if (lic.licenseId !== lid) {
-      alert("License ID mismatch. Flight not recorded.");
-      show(dashboardView);
-      return;
-    }
-
-    // Optional: check expiry or suspension
-    if (new Date(lic.expiry) < new Date()) {
-      alert("License expired. Flight not recorded.");
-      show(dashboardView);
-      return;
-    }
-    const warnings = Math.min(lic.warnings || 0, 3);
-    if (warnings >= 3) {
-      alert("License is suspended (3 warnings). Flight not recorded.");
-      show(dashboardView);
-      return;
-    }
-
-    // Ask for plane id and route
-    const planeId = (prompt("Plane ID (e.g. PLANE-XXXX):") || "").trim();
-    if (!planeId) {
-      alert("No plane ID entered. Aborted.");
-      show(dashboardView);
-      return;
-    }
-    const dep = (prompt("Departure (from):") || "").trim();
-    if (!dep) { alert("No departure entered. Aborted."); show(dashboardView); return; }
-    const arr = (prompt("Arrival (to):") || "").trim();
-    if (!arr) { alert("No arrival entered. Aborted."); show(dashboardView); return; }
-
-    // load public planes once and search for the plane
-    const publicPlanesSnap = await db.ref("public/planes").get();
-    const publicPlanes = publicPlanesSnap.val() || {};
-    let found = null;
-    let foundLocation = null;
-    for (const loc of Object.keys(publicPlanes)) {
-      const arrPlanes = publicPlanes[loc] || [];
-      const idx = arrPlanes.findIndex(p => p.id === planeId);
-      if (idx !== -1) {
-        found = { plane: { ...arrPlanes[idx] }, index: idx, planesAtLocation: arrPlanes };
-        foundLocation = loc;
-        break;
-      }
-    }
-
-    if (!found) {
-      alert("Plane not found in public registry. Flight not recorded.");
-      show(dashboardView);
-      return;
-    }
-
-    // Backfill defaults
-    found.plane.flights = Number.isFinite(found.plane.flights) ? found.plane.flights : 0;
-    found.plane.condition = Number.isFinite(found.plane.condition) ? found.plane.condition : 100;
-
-    // Grounded check
-    if (found.plane.flights >= 25 || found.plane.condition <= 0) {
-      alert(`Plane ${found.plane.id} is grounded (flights: ${found.plane.flights}/25, condition: ${Math.max(0,found.plane.condition)}%). Flight not recorded.`);
-      show(dashboardView);
-      return;
-    }
-
-    // increment flights and reduce condition
-    found.plane.flights = Math.min(25, found.plane.flights + 1);
-    found.plane.condition = Math.max(0, Math.round((found.plane.condition - 4) * 10) / 10);
-
-    // write back updated plane array for that location
-    const locationRef = db.ref(`public/planes/${foundLocation}`);
-    const planesAtLoc = found.planesAtLocation;
-    planesAtLoc[found.index] = found.plane;
-    await locationRef.set(planesAtLoc);
-
-    // Save flight record to scanned user's data
-    const flightsRef = db.ref(`data/${user}/flights`);
-    const flightsSnap = await flightsRef.get();
-    const flights = flightsSnap.val() || [];
-    flights.push({
-      callSign: planeId,
-      dep,
-      arr,
-      at: new Date().toISOString()
-    });
-    await flightsRef.set(flights);
-
-    alert(`Flight recorded for ${user} on ${planeId} (${dep} → ${arr}).\nPlane flights: ${found.plane.flights}/25 • Condition: ${found.plane.condition}%`);
-    // refresh local data & UI
-    await loadData();
-    renderPlaneLocations();
-    show(dashboardView);
-  } catch (e) {
-    console.error("Error in add-flight scan:", e);
-    alert("Error recording flight: " + (e && e.message ? e.message : e));
-    show(dashboardView);
-  }
-}
 
 /* =========================
     Add Airline (locked by 555)
@@ -845,7 +694,7 @@ saveLicenseBtn.onclick = async () => {
 };
 
 /* =========================
-    QR Scanners (validate & warnings)
+    QR Scanners
 ========================= */
 let html5Qr; // main validate scanner
 let warningQr; // warning scanner
